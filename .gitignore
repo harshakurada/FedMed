@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data / model artifacts
+*.pt
+*.pth
+*.ckpt
+*.h5
+data/
+datasets/
+*.nii
+*.nii.gz
+!docs/**/*.nii.gz
+
+# TLS certs / secrets
+*.pem
+*.key
+*.crt
+.env
+
+# Node / React
+dashboard/node_modules/
+dashboard/build/
+dashboard/.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
