@@ -16,6 +16,7 @@ venv/
 *.h5
 data/
 datasets/
+checkpoints/
 *.nii
 *.nii.gz
 !docs/**/*.nii.gz

@@ -23,18 +23,44 @@ Researchers at three different global hospitals collaborate to train a brain tum
 | **Privacy & Encryption** | TenSEAL | Implements Homomorphic Encryption, allowing the central server to aggregate model weights while they remain mathematically encrypted. |
 | **Training Dashboard** | React / Recharts | Monitoring UI showing the global model's convergence and accuracy metrics across distributed epochs. |
 
+## Current Development Stage
+
+**Implemented:**
+- `cv_model/` — 3D U-Net (MONAI), Dice loss/metric. Verified via `python -m cv_model.sanity_check` (synthetic data, no dataset download).
+- `cv_model/brats/` — a **locally-supplied** BraTS dataset pipeline (discovery, deep validation, patient-level train/val split, MONAI transforms, PyTorch/MONAI `Dataset`/`DataLoader`, dev-time slice inspection) verified end-to-end against a real local BraTS2020 copy (9 usable studies) plus a synthetic-fixture test suite (`pytest cv_model/brats/tests`, 20/20 passing). Full details, including the exact label convention and how to point it at your own data: [`docs/dataset.md`](docs/dataset.md). This is separate from `cv_model/dataset.py` (below), which targets a different data source.
+- `cv_model/training/` — 3D U-Net centralized training baseline: training/validation loops, Dice+IoU metrics, checkpointing (with resume), optional early stopping/LR scheduling, and a small inference/visual-inspection utility. Model + training-mechanics sanity check and a small-subset overfitting check both verified end-to-end against real local BraTS2020 data (loss decreased in 14/14 epoch-to-epoch steps — pipeline can learn). **Full multi-epoch baseline training has not been run** — only the mechanics have been verified; run `cv_model.training.trainer.train_baseline()` explicitly to actually train.
+- `hospital_nodes/` + `server/` — Flower `ClientApp`/`ServerApp` scaffolding for 3 mock hospital SuperNodes (Hospital A/B/C) and a central SuperLink, FedAvg strategy wired to the shared U-Net. Verified end-to-end locally with `flwr run` on **synthetic per-node data** — real BraTS partitioning is not wired in yet.
+- Configuration structure for dataset/training paths, hospital identities, server networking, and (unused-so-far) WebSocket/encryption settings — see `cv_model/config.py`, `cv_model/brats/config.py`, `cv_model/training/config.py`, `hospital_nodes/config.py`, `server/config.py`, `encryption/config.py`.
+
+**Not yet implemented (planned for future modules):**
+- A full centralized baseline training run (only 9 usable local studies right now — enough to verify the pipeline, not to produce a meaningful baseline; the fuller ~369-study BraTS2020 release is needed for that).
+- `cv_model/dataset.py` — an *alternate*, untested path wrapping MONAI's auto-downloading `DecathlonDataset` (MSD Task01_BrainTumour release). Kept from Module 1; not the pipeline used by `cv_model/brats/`.
+- Per-node BraTS partitioning replacing the synthetic data in `hospital_nodes/client_app.py` (Module 4's `cv_model/training` logic is written so a future hospital node can reuse it unmodified for local training).
+- gRPC TLS between server and nodes.
+- TenSEAL homomorphic encryption (`encryption/` is a config-only boundary right now — no keys, no ciphertext logic).
+- Differential privacy noise on weight updates.
+- The React dashboard (`dashboard/package.json` declares the intended deps; no components exist yet, and Node.js/npm are not currently installed on this machine).
+
 ## Repository Layout
 
 ```
 FedMed/
-├── server/           # Central aggregation server (Flower strategy, FedAvg, gRPC)
-├── hospital-nodes/   # Mock hospital client nodes (local training loops)
-├── cv-model/         # 3D U-Net (PyTorch/MONAI) model definitions & training scripts
-├── encryption/       # TenSEAL homomorphic encryption + differential privacy utilities
-├── dashboard/        # React + Recharts training/monitoring dashboard
+├── server/           # Central aggregation server (Flower ServerApp, FedAvg strategy, config)
+├── hospital_nodes/   # Mock hospital client nodes (Flower ClientApp, per-hospital config)
+├── cv_model/         # 3D U-Net (PyTorch/MONAI) model definitions & data pipeline
+├── encryption/       # TenSEAL homomorphic encryption boundary (config only, not yet implemented)
+├── dashboard/        # React + Recharts training/monitoring dashboard (scaffold only)
 ├── docs/             # Design notes, architecture diagrams, weekly progress
 └── scripts/          # Setup/orchestration helper scripts
 ```
+
+> Python package folders use underscores (`cv_model`, `hospital_nodes`), not hyphens,
+> since Python cannot `import` a hyphenated module name.
+
+> Each of `cv_model/`, `hospital_nodes/`, `server/`, and `encryption/` owns a `config.py`
+> with its own dataclass of settings (paths, ports, hyperparameters), each overridable via
+> `FEDMED_*` environment variables. No secrets or environment-specific paths are hard-coded
+> at point of use.
 
 ## Week-wise Development Plan
 
@@ -65,11 +91,11 @@ A masterclass in cryptography and decentralized deep learning — a compliant, p
 
 ```bash
 # Python environment (server / nodes / cv-model / encryption)
-python -m venv .venv
+python -m venv .venv          # skip if .venv already exists
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Dashboard (React)
+# Dashboard (React) -- requires Node.js/npm installed first
 cd dashboard
 npm install
 npm start

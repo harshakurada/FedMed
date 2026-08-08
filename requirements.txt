@@ -18,3 +18,8 @@ numpy>=1.26
 nibabel>=5.2
 scikit-learn>=1.4
 websockets>=12.0
+
+# Module 3: raw BraTS dataset pipeline
+matplotlib>=3.8   # cv_model/brats/inspect_slices.py only -- MONAI's own slice-plot
+                   # utility (monai.visualize.matshow3d) requires it as a backend too
+pytest>=8.0        # cv_model/brats/tests/
