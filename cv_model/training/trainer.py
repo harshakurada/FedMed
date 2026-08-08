@@ -31,6 +31,7 @@ class BaselineResult:
     num_train_studies: int
     num_val_studies: int
     epochs_completed: int
+    best_epoch: int
     best_val_dice: float
     best_val_iou: float
     best_val_loss: float
@@ -124,6 +125,7 @@ def train_baseline(
     stopped_early = False
     final_val_dice = best_val_dice if best_val_dice >= 0 else 0.0
     final_val_iou = 0.0
+    best_epoch = start_epoch - 1
     training_start = time.time()
     last_epoch_completed = start_epoch - 1
 
@@ -164,7 +166,10 @@ def train_baseline(
             + f"({duration:.1f}s)"
         )
 
-        checkpoint_dir = train_config.checkpoint_dir
+        # outputs/baseline-style layout, rooted at TrainingConfig.checkpoint_dir (Module 4's
+        # existing convention) rather than a second parallel output tree: checkpoints/, history/,
+        # and (added by cv_model.training.experiment) metrics/, plots/, inference/.
+        checkpoints_dir = train_config.checkpoint_dir / "checkpoints"
         common_state = dict(
             epoch=epoch,
             model_state_dict=model.state_dict(),
@@ -174,7 +179,7 @@ def train_baseline(
             train_config=asdict(train_config),
         )
         save_checkpoint(
-            CheckpointState(best_val_dice=max(best_val_dice, 0.0), **common_state), checkpoint_dir / "latest.pt"
+            CheckpointState(best_val_dice=max(best_val_dice, 0.0), **common_state), checkpoints_dir / "latest.pt"
         )
 
         if val_metrics is not None:
@@ -184,8 +189,9 @@ def train_baseline(
                 best_val_dice = val_metrics.dice
                 best_val_iou = val_metrics.iou
                 best_val_loss = val_metrics.loss
+                best_epoch = epoch
                 save_checkpoint(
-                    CheckpointState(best_val_dice=best_val_dice, **common_state), checkpoint_dir / "best.pt"
+                    CheckpointState(best_val_dice=best_val_dice, **common_state), checkpoints_dir / "best.pt"
                 )
                 epochs_without_improvement = 0
             else:
@@ -199,12 +205,13 @@ def train_baseline(
                 stopped_early = True
                 break
 
-    history.save(train_config.checkpoint_dir / "history.json")
+    history.save(train_config.checkpoint_dir / "history" / "history.json")
 
     return BaselineResult(
         num_train_studies=len(split.train),
         num_val_studies=len(split.val),
         epochs_completed=last_epoch_completed,
+        best_epoch=best_epoch,
         best_val_dice=max(best_val_dice, 0.0),
         best_val_iou=best_val_iou,
         best_val_loss=best_val_loss,

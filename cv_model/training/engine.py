@@ -19,15 +19,28 @@ from cv_model.training.config import TrainingConfig
 @dataclass
 class EpochMetrics:
     loss: float
-    dice: float
+    dice: float  # macro mean across regions -- see cv_model/training/engine.py module note below
     iou: float
+    dice_per_region: tuple[float, ...] = ()
+    iou_per_region: tuple[float, ...] = ()
 
 
-def _mean_metric(metric) -> float:
-    """Aggregate a MONAI per-region metric (Dice/IoU) into one scalar and reset it."""
-    value = metric.aggregate().mean().item()
+def _aggregate_metric(metric) -> tuple[float, tuple[float, ...]]:
+    """Aggregate a MONAI per-region metric (Dice/IoU) into (macro mean, per-region scores), then reset it.
+
+    Both metrics are built with `include_background=True` (there is no separate background
+    *channel* here -- TC/WT/ET are overlapping foreground regions, see cv_model.brats.labels)
+    and `reduction="mean_batch"`, so `aggregate()` already returns one score per region
+    (macro, unweighted); the mean here just collapses those 3 region scores to one scalar
+    for logging. `ignore_empty=True` (MONAI default) means a region absent from both
+    prediction and ground truth in a given sample is excluded from that sample's contribution
+    -- but if a region is absent across *every* sample in the batch, MONAI has nothing left to
+    average and reports 0.0 for it, not NaN and not a skipped value. A 0.0 in that case means
+    "no examples of this region in this batch", not "the model failed on this region".
+    """
+    per_region = metric.aggregate()
     metric.reset()
-    return value
+    return per_region.mean().item(), tuple(per_region.tolist())
 
 
 def train_one_epoch(
@@ -83,10 +96,14 @@ def train_one_epoch(
     if num_batches == 0:
         raise RuntimeError("Training DataLoader produced no batches -- check the train split is non-empty.")
 
+    dice, dice_per_region = _aggregate_metric(dice_metric)
+    iou, iou_per_region = _aggregate_metric(iou_metric)
     return EpochMetrics(
         loss=running_loss / num_batches,
-        dice=_mean_metric(dice_metric),
-        iou=_mean_metric(iou_metric),
+        dice=dice,
+        iou=iou,
+        dice_per_region=dice_per_region,
+        iou_per_region=iou_per_region,
     )
 
 
@@ -123,8 +140,12 @@ def validate(
     if num_batches == 0:
         raise RuntimeError("Validation DataLoader produced no batches -- check the val split is non-empty.")
 
+    dice, dice_per_region = _aggregate_metric(dice_metric)
+    iou, iou_per_region = _aggregate_metric(iou_metric)
     return EpochMetrics(
         loss=running_loss / num_batches,
-        dice=_mean_metric(dice_metric),
-        iou=_mean_metric(iou_metric),
+        dice=dice,
+        iou=iou,
+        dice_per_region=dice_per_region,
+        iou_per_region=iou_per_region,
     )

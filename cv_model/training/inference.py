@@ -65,7 +65,7 @@ def run_inference(
 ) -> None:
     data_config = replace(data_config or BraTSRawConfig(), on_incomplete_study="exclude")
     train_config = train_config or TrainingConfig()
-    checkpoint_path = checkpoint_path or (train_config.checkpoint_dir / "best.pt")
+    checkpoint_path = checkpoint_path or (train_config.checkpoint_dir / "checkpoints" / "best.pt")
     out_dir = out_dir or (train_config.checkpoint_dir / "inference")
     device = train_config.device
 
