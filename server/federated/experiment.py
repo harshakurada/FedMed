@@ -45,6 +45,7 @@ from server.federated.client_proxy import InProcessClientProxy
 from server.federated.config import FederatedConfig, validate_federated_config
 from server.federated.evaluation import build_centralized_evaluate_fn
 from server.federated.history import ClientRoundRecord, FederatedHistory, RoundRecord
+from server.dashboard.events import DashboardEvent, EventSink, EventType
 from server.federated.plots import generate_federated_curves
 from server.federated.results import FederatedResults, build_results, compare_to_baseline
 from server.federated.strategy import build_strategy
@@ -52,6 +53,13 @@ from server.federated.strategy import build_strategy
 DEFAULT_BASELINE_RESULTS_PATH = Path("./checkpoints/brats_baseline/metrics/results.json")
 
 logger = logging.getLogger("fedmed.federated.experiment")
+
+
+def _emit(event_sink: EventSink | None, **kwargs) -> None:
+    """No-op when event_sink is None -- the default, and what every existing caller of
+    run_federated_experiment (Modules 7/8's own tests) still gets, unchanged."""
+    if event_sink is not None:
+        event_sink.emit(DashboardEvent(**kwargs))
 
 
 def _save_global_checkpoint(
@@ -94,7 +102,12 @@ def run_federated_experiment(
     experiment_name: str = "federated_experiment",
     data_config: BraTSRawConfig | None = None,
     base_train_config: TrainingConfig | None = None,
+    event_sink: EventSink | None = None,
 ) -> FederatedResults:
+    """`event_sink` (Module 11) is optional and purely observational -- when `None`
+    (the default), this function's behavior is byte-for-byte what it was before Module
+    11 existed. See server/dashboard/ for what consumes these events; nothing in this
+    function's own control flow depends on whether an event_sink is provided."""
     validate_federated_config(federated_config)
 
     train_config = base_train_config or TrainingConfig()
@@ -135,6 +148,7 @@ def run_federated_experiment(
     for hospital in hospitals:
         client = HospitalNodeClient(hospital).to_client()
         client_manager.register(InProcessClientProxy(cid=hospital.hospital_id, client=client))
+        _emit(event_sink, event_type=EventType.CLIENT_CONNECTED, source=hospital.hospital_id)
 
     evaluate_fn = build_centralized_evaluate_fn(data_config, train_config)
     parameters = ndarrays_to_parameters(initial_ndarrays)
@@ -149,8 +163,14 @@ def run_federated_experiment(
 
     for round_num in range(1, federated_config.num_rounds + 1):
         round_start = time.time()
+        _emit(
+            event_sink, event_type=EventType.ROUND_STARTED, source="server", round=round_num,
+            payload={"num_rounds": federated_config.num_rounds},
+        )
 
         fit_pairs = strategy.configure_fit(round_num, parameters, client_manager)
+        for proxy, _fit_ins in fit_pairs:
+            _emit(event_sink, event_type=EventType.CLIENT_TRAINING, source=proxy.cid, round=round_num)
 
         # A dropped hospital (a live deployment's connection failure, simulated here by a
         # raised exception) never gets fake/substitute parameters -- it's simply excluded
@@ -162,11 +182,25 @@ def run_federated_experiment(
         failed_hospital_ids: list[str] = []
         for proxy, fit_ins in fit_pairs:
             try:
-                succeeded.append((proxy, proxy.fit(fit_ins, timeout=None, group_id=None)))
+                fit_res = proxy.fit(fit_ins, timeout=None, group_id=None)
+                succeeded.append((proxy, fit_res))
+                _emit(
+                    event_sink, event_type=EventType.CLIENT_TRAINING_COMPLETED, source=proxy.cid, round=round_num,
+                    payload={
+                        "num_examples": fit_res.num_examples,
+                        "train_loss": float(fit_res.metrics.get("train_loss", 0.0)),
+                        "train_dice": float(fit_res.metrics.get("train_dice", 0.0)),
+                        "train_iou": float(fit_res.metrics.get("train_iou", 0.0)),
+                    },
+                )
             except Exception as exc:  # noqa: BLE001 -- a dropped hospital must never crash the round
                 logger.warning("Round %d: hospital %s failed to fit: %s", round_num, proxy.cid, exc)
                 failures.append(exc)
                 failed_hospital_ids.append(proxy.cid)
+                _emit(
+                    event_sink, event_type=EventType.CLIENT_FAILED, source=proxy.cid, round=round_num,
+                    payload={"reason": "fit_error", "message": "hospital did not complete local training this round"},
+                )
 
         # Stale-update protection: a result whose echoed round (on_fit_config_fn,
         # strategy.py) doesn't match this round is a late/delayed response and must never
@@ -243,6 +277,23 @@ def run_federated_experiment(
             stale_hospital_ids=stale_hospital_ids,
         )
         history.append(record)
+        _emit(
+            event_sink, event_type=EventType.GLOBAL_MODEL_UPDATED, source="server", round=round_num,
+            payload={"aggregation_mode": "plaintext"},
+        )
+        _emit(
+            event_sink, event_type=EventType.METRICS_UPDATED, source="server", round=round_num,
+            payload={"global_loss": global_loss, "global_dice": global_dice, "global_iou": global_iou},
+        )
+        _emit(
+            event_sink, event_type=EventType.ROUND_COMPLETED, source="server", round=round_num,
+            payload={
+                "round_duration_seconds": record.duration_seconds,
+                "clients_completed": len(client_records),
+                "clients_failed": len(failed_hospital_ids),
+                "round_status": "Completed",
+            },
+        )
 
         _save_global_checkpoint(
             checkpoint_dir / "latest_global.pt", round_num, aggregated_ndarrays, data_config, train_config, global_metrics

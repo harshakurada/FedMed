@@ -2,15 +2,27 @@
   "name": "fedmed-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "FedMed training dashboard — visualizes global model convergence, accuracy metrics, and segmentation masks across federated hospital nodes.",
+  "description": "FedMed monitoring dashboard — real-time, read-only observation of the federated round, hospital status, model metrics, and privacy/security status over a WebSocket connection to the existing Python backend (server/dashboard/). Performs no training, model, encryption, or privacy logic itself.",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
     "recharts": "^2.12.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test"
+  },
+  "eslintConfig": {
+    "extends": ["react-app"]
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
   }
 }

@@ -1,0 +1,362 @@
+:root {
+  --fm-border: #cbd5e1;
+  --fm-panel-bg: #ffffff;
+  --fm-page-bg: #f1f5f9;
+  --fm-text-muted: #64748b;
+  --fm-ok: #16a34a;
+  --fm-warn: #d97706;
+  --fm-error: #dc2626;
+  --fm-active: #2563eb;
+}
+
+.fm-app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Header */
+.fm-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.fm-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+}
+
+.fm-subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--fm-text-muted);
+  font-size: 0.95rem;
+}
+
+.fm-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--fm-border);
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fm-status-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.fm-status-ok {
+  color: var(--fm-ok);
+}
+.fm-status-warn {
+  color: var(--fm-warn);
+}
+.fm-status-error {
+  color: var(--fm-error);
+}
+.fm-status-active {
+  color: var(--fm-active);
+}
+.fm-status-muted {
+  color: var(--fm-text-muted);
+}
+
+.fm-top-notice {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 0.5rem;
+  color: #92400e;
+  font-weight: 500;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* KPI cards */
+.fm-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.fm-card {
+  background: var(--fm-panel-bg);
+  border: 1px solid var(--fm-border);
+  border-radius: 0.5rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fm-card-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--fm-text-muted);
+}
+
+.fm-card-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.fm-card-hint {
+  font-size: 0.8rem;
+  color: var(--fm-text-muted);
+}
+
+/* Generic panel */
+.fm-panel {
+  background: var(--fm-panel-bg);
+  border: 1px solid var(--fm-border);
+  border-radius: 0.5rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.fm-panel h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+}
+
+.fm-empty {
+  color: var(--fm-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Hospital status */
+.fm-hospital-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.fm-hospital-card {
+  border: 1px solid var(--fm-border);
+  border-radius: 0.4rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.fm-hospital-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.fm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.fm-hospital-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.6rem;
+  margin: 0;
+}
+
+.fm-hospital-card dt {
+  font-size: 0.72rem;
+  color: var(--fm-text-muted);
+  text-transform: uppercase;
+}
+
+.fm-hospital-card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Round progress */
+.fm-round-summary {
+  margin: 0 0 0.6rem;
+}
+
+.fm-progress-track {
+  width: 100%;
+  height: 0.6rem;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fm-progress-fill {
+  height: 100%;
+  background: var(--fm-active);
+  transition: width 0.3s ease;
+}
+
+.fm-round-status {
+  margin: 0.6rem 0 0;
+  color: var(--fm-text-muted);
+}
+
+/* Charts */
+.fm-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.fm-chart-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--fm-text-muted);
+  font-weight: 600;
+}
+
+.fm-chart-empty {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fm-text-muted);
+  border: 1px dashed var(--fm-border);
+  border-radius: 0.4rem;
+  font-style: italic;
+}
+
+/* Privacy / Encryption / Security */
+.fm-security-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.fm-info-list {
+  margin: 0;
+}
+
+.fm-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed var(--fm-border);
+  font-size: 0.9rem;
+}
+
+.fm-info-row:last-child {
+  border-bottom: none;
+}
+
+.fm-info-row dt {
+  color: var(--fm-text-muted);
+}
+
+.fm-info-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.fm-security-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.fm-security-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fm-security-note {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  color: var(--fm-text-muted);
+}
+
+/* Event log */
+.fm-event-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.fm-event {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.3rem;
+}
+
+.fm-event-time {
+  color: var(--fm-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5rem;
+}
+
+.fm-event-severity {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.25rem;
+  min-width: 4.2rem;
+  text-align: center;
+}
+
+.fm-severity-badge-info {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.fm-severity-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.fm-severity-badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.fm-footer {
+  text-align: center;
+  color: var(--fm-text-muted);
+  font-size: 0.78rem;
+  padding: 0.75rem 0 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .fm-app {
+    padding: 1rem;
+  }
+  .fm-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
