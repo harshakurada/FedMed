@@ -46,6 +46,8 @@ ALL_EVENT_TYPES = frozenset(
 ALLOWED_PAYLOAD_KEYS = frozenset(
     {
         # Round / system status
+        "mode",  # "LIVE MODE" / "DEMO MODE" / "SIMULATION MODE" -- Module 13, so the
+        # dashboard can never be mistaken for a real experiment when it isn't one.
         "num_rounds",
         "clients_participating",
         "clients_completed",

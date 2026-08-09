@@ -9,6 +9,7 @@ const MAX_BACKOFF_MS = 30000;
 
 const EMPTY_STATE = {
   systemStatus: "No data yet",
+  mode: null, // "LIVE MODE" / "DEMO MODE" / "SIMULATION MODE" -- Module 13
   currentRound: null,
   numRounds: null,
   roundStatus: null,
@@ -32,6 +33,39 @@ const EMPTY_STATE = {
   roundHistory: [], // [{round, durationSeconds, clientsCompleted, clientsFailed}]
 };
 
+// Reconstructs chart history from the snapshot's own `recent_events` log. Without this,
+// a browser that connects (or reconnects) *after* a round already finished would get the
+// final KPI values (those are plain snapshot fields) but empty charts forever -- the
+// history arrays below were previously only ever built incrementally from live events,
+// never replayed from `recent_events`, even though the backend already sends up to the
+// last 100 events in every snapshot.
+function historyFromEvents(events) {
+  const metricsHistory = [];
+  const roundHistory = [];
+  for (const event of events) {
+    const { event_type: type, round, payload = {} } = event;
+    if (type === EventType.METRICS_UPDATED) {
+      metricsHistory.push({
+        round,
+        globalDice: payload.global_dice ?? null,
+        globalIou: payload.global_iou ?? null,
+        globalLoss: payload.global_loss ?? null,
+      });
+    } else if (type === EventType.ROUND_COMPLETED) {
+      roundHistory.push({
+        round,
+        durationSeconds: payload.round_duration_seconds ?? null,
+        clientsCompleted: payload.clients_completed ?? null,
+        clientsFailed: payload.clients_failed ?? null,
+      });
+    }
+  }
+  return {
+    metricsHistory: metricsHistory.slice(-MAX_CHART_HISTORY),
+    roundHistory: roundHistory.slice(-MAX_CHART_HISTORY),
+  };
+}
+
 function snapshotToState(data) {
   const hospitals = {};
   for (const [id, h] of Object.entries(data.hospitals || {})) {
@@ -46,9 +80,11 @@ function snapshotToState(data) {
       trainIou: h.train_iou,
     };
   }
+  const { metricsHistory, roundHistory } = historyFromEvents(data.recent_events || []);
   return {
     ...EMPTY_STATE,
     systemStatus: data.system_status ?? EMPTY_STATE.systemStatus,
+    mode: data.mode ?? null,
     currentRound: data.current_round ?? null,
     numRounds: data.num_rounds ?? null,
     roundStatus: data.round_status ?? null,
@@ -68,6 +104,8 @@ function snapshotToState(data) {
     encryptionStatus: data.encryption_status ?? null,
     tlsStatus: data.tls_status ?? null,
     recentEvents: (data.recent_events || []).slice(-MAX_RECENT_EVENTS),
+    metricsHistory,
+    roundHistory,
   };
 }
 
@@ -82,6 +120,7 @@ function applyEvent(prev, event) {
   switch (type) {
     case EventType.SYSTEM_READY:
       next.systemStatus = "Ready";
+      if (payload.mode != null) next.mode = payload.mode;
       break;
     case EventType.ROUND_STARTED:
       next.systemStatus = "Training";

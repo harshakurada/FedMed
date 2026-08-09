@@ -41,6 +41,34 @@
   font-size: 0.95rem;
 }
 
+.fm-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.fm-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid currentColor;
+}
+
+.fm-mode-live {
+  color: var(--fm-active);
+  background: #eff6ff;
+}
+
+.fm-mode-demo {
+  color: var(--fm-warn);
+  background: #fffbeb;
+}
+
 .fm-connection-badge {
   display: inline-flex;
   align-items: center;

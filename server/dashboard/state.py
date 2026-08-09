@@ -29,6 +29,7 @@ class HospitalStatus:
 @dataclass
 class DashboardState:
     system_status: str = "Not started"
+    mode: str | None = None  # "LIVE MODE" / "DEMO MODE" / "SIMULATION MODE" -- Module 13
     current_round: int | None = None
     num_rounds: int | None = None
     round_status: str | None = None
@@ -62,6 +63,7 @@ class DashboardState:
 
         if event.event_type == EventType.SYSTEM_READY:
             self.system_status = "Ready"
+            self.mode = payload.get("mode", self.mode)
         elif event.event_type == EventType.ROUND_STARTED:
             self.system_status = "Training"
             self.round_status = "Training"

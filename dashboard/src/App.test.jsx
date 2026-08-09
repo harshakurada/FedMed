@@ -21,6 +21,7 @@ const SNAPSHOT = {
   noise_multiplier: null,
   cumulative_epsilon: null,
   budget_status: null,
+  mode: null,
   ckks_enabled: null,
   encryption_status: null,
   tls_status: null,
@@ -206,6 +207,84 @@ test("disconnect shows Disconnected/reconnecting state, not a crash", () => {
   });
   expect(screen.getByText(/Attempting to reconnect/)).toBeInTheDocument();
   jest.useRealTimers();
+});
+
+test("SYSTEM_READY with a mode payload shows the DEMO MODE badge, never defaulting to LIVE", () => {
+  render(<App />);
+  act(() => {
+    MockWebSocket.latest().mockOpen();
+    MockWebSocket.latest().mockMessage({ type: "snapshot", data: SNAPSHOT });
+  });
+  expect(screen.queryByText("DEMO MODE")).not.toBeInTheDocument();
+  expect(screen.queryByText("LIVE MODE")).not.toBeInTheDocument();
+
+  act(() => {
+    MockWebSocket.latest().mockMessage({
+      type: "event",
+      data: { event_type: EventType.SYSTEM_READY, source: "server", round: null, payload: { mode: "DEMO MODE" }, timestamp: new Date().toISOString() },
+    });
+  });
+  expect(screen.getByText("DEMO MODE")).toBeInTheDocument();
+});
+
+test("Project Status panel reflects actual reported state, not hard-coded ACTIVE", () => {
+  render(<App />);
+  act(() => {
+    MockWebSocket.latest().mockOpen();
+    MockWebSocket.latest().mockMessage({
+      type: "snapshot",
+      data: { ...SNAPSHOT, system_status: "Not started" },
+    });
+  });
+  expect(screen.getAllByText("Not started").length).toBeGreaterThan(0);
+  // DP/CKKS/TLS unreported yet -- must read N/A, never a fabricated ACTIVE.
+  expect(screen.getAllByText("N/A").length).toBeGreaterThan(0);
+
+  act(() => {
+    MockWebSocket.latest().mockMessage({
+      type: "event",
+      data: {
+        event_type: EventType.ENCRYPTION_UPDATED, source: "server", round: null,
+        payload: { ckks_enabled: true, tls_status: "Active" }, timestamp: new Date().toISOString(),
+      },
+    });
+  });
+  const activeChips = screen.getAllByText("ACTIVE");
+  expect(activeChips.length).toBeGreaterThanOrEqual(2); // CKKS + TLS
+});
+
+test("reconnecting after a round already finished still populates the charts from the snapshot's event history", () => {
+  // Regression test: a browser that connects (or refreshes) after a round has already
+  // completed previously showed the correct KPI values but every chart stuck on "No
+  // data yet" forever, because chart history was only ever built from *live* events,
+  // never replayed from the snapshot's own `recent_events` log.
+  const timestamp = new Date().toISOString();
+  const snapshotAfterRoundAlreadyCompleted = {
+    ...SNAPSHOT,
+    system_status: "Idle",
+    current_round: 1,
+    round_status: "Completed",
+    global_dice: 0.27,
+    global_iou: 0.16,
+    global_loss: 0.7,
+    recent_events: [
+      { event_type: EventType.ROUND_STARTED, source: "server", round: 1, payload: { num_rounds: 1 }, timestamp },
+      { event_type: EventType.METRICS_UPDATED, source: "server", round: 1, payload: { global_dice: 0.27, global_iou: 0.16, global_loss: 0.7 }, timestamp },
+      { event_type: EventType.ROUND_COMPLETED, source: "server", round: 1, payload: { round_duration_seconds: 1.2, clients_completed: 3, clients_failed: 0 }, timestamp },
+    ],
+  };
+
+  render(<App />);
+  act(() => {
+    MockWebSocket.latest().mockOpen();
+    MockWebSocket.latest().mockMessage({ type: "snapshot", data: snapshotAfterRoundAlreadyCompleted });
+  });
+
+  expect(screen.queryByRole("img", { name: "Global Dice vs. Round: no data yet" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "Global IoU vs. Round: no data yet" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "Global Loss vs. Round: no data yet" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "Round Duration: no data yet" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "Client Participation: no data yet" })).not.toBeInTheDocument();
 });
 
 test("no forbidden field is ever rendered even if present on a crafted event payload", () => {

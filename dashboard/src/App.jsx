@@ -8,6 +8,7 @@ import MetricsCharts from "./components/MetricsCharts";
 import PrivacyPanel from "./components/PrivacyPanel";
 import EncryptionPanel from "./components/EncryptionPanel";
 import SecurityStatus from "./components/SecurityStatus";
+import ProjectStatusPanel from "./components/ProjectStatusPanel";
 import EventLog from "./components/EventLog";
 import "./App.css";
 
@@ -18,7 +19,7 @@ export default function App() {
 
   return (
     <div className="fm-app">
-      <Header connectionStatus={connectionStatus} />
+      <Header connectionStatus={connectionStatus} mode={state.mode} />
 
       {connectionStatus !== "Connected" && state.recentEvents.length === 0 ? (
         <p className="fm-empty fm-top-notice" role="status">
@@ -37,6 +38,7 @@ export default function App() {
           <PrivacyPanel state={state} />
           <EncryptionPanel state={state} />
           <SecurityStatus state={state} />
+          <ProjectStatusPanel state={state} connectionStatus={connectionStatus} />
         </div>
         <EventLog events={state.recentEvents} />
       </main>

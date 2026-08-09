@@ -3,14 +3,12 @@ before this module -- DP (Module 10) + CKKS (Module 9) + the real mutual-TLS gRP
 coordination service (Module 8) + the real dashboard WebSocket bridge (Module 11), all
 in a single federated round, over the real 3-hospital BraTS pipeline (Module 6/7).
 
-No new mechanism is invented here: every step below calls an already-tested function
-from an earlier module (`apply_dp_mechanism`, `encrypt_model_update`,
-`EncryptedAggregationServer`, `create_secure_channel`/`submit_encrypted_update`,
-`KeyHolder.decrypt_aggregate`, `build_centralized_evaluate_fn`,
-`DashboardWebSocketServer`). This file only composes them and adds the assertions that
-prove the composition actually holds -- e.g. that what crosses the gRPC wire is always
-ciphertext bytes, never a plaintext float array, and that the server-side
-`EncryptedAggregationServer` never touches a CKKS secret key.
+The actual round orchestration lives in `server/federated/integrated_round.py`
+(promoted to production code in Module 13, since Module 13's demo entry point needs the
+exact same composition this test proves) -- this file only builds the fixtures, wires a
+real dashboard WebSocket server + client around it, and asserts the composition holds:
+e.g. that the aggregation server never touches a CKKS secret key, and that no forbidden
+field ever reaches a dashboard payload.
 """
 
 from __future__ import annotations
@@ -23,28 +21,23 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import tenseal as ts
 import websockets
 
 from cv_model.brats.config import BraTSRawConfig
-from cv_model.params import get_parameters
 from cv_model.training.config import TrainingConfig
 from hospital_nodes.simulation import create_hospital_nodes
-from server.dashboard.events import DashboardEvent, EventType
 from server.dashboard.state import DashboardState
 from server.dashboard.websocket_server import DashboardWebSocketServer
 from server.federated.dp.accountant import PrivacyAccountant
 from server.federated.dp.dp_config import DPConfig
-from server.federated.dp.dp_update import apply_dp_mechanism
 from server.federated.encrypted.aggregator import EncryptedAggregationServer
 from server.federated.encrypted.ckks_config import CKKSConfig
-from server.federated.encrypted.encryption import encrypt_model_update
 from server.federated.encrypted.key_holder import KeyHolder
 from server.federated.encrypted.serialization import flatten_model_parameters
 from server.federated.evaluation import build_centralized_evaluate_fn
 from server.federated.grpc_service.config import GrpcSecurityConfig
-from server.federated.grpc_service.health_client import create_secure_channel, submit_encrypted_update
 from server.federated.grpc_service.health_server import create_grpc_server
+from server.federated.integrated_round import run_integrated_round
 
 ROUND_ID = 1
 MODEL_VERSION = "v1"
@@ -65,141 +58,6 @@ def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", 0))
         return probe.getsockname()[1]
-
-
-def _run_integrated_round(
-    hospitals,
-    ckks_config: CKKSConfig,
-    dp_config: DPConfig,
-    accountant: PrivacyAccountant,
-    rng: np.random.Generator,
-    key_holder: KeyHolder,
-    public_context_bytes: bytes,
-    specs,
-    aggregation_server: EncryptedAggregationServer,
-    grpc_config: GrpcSecurityConfig,
-    dashboard_server: DashboardWebSocketServer,
-    fail_hospital_id: str | None = None,
-) -> tuple[list[str], list[str], dict]:
-    """One full round: local train -> DP clip+noise -> CKKS encrypt -> submit over the
-    real mTLS gRPC channel -> homomorphic aggregate -> authorized decrypt. Every step
-    emits the same dashboard events `server/federated/encrypted/run_encrypted_round.py`
-    emits (Module 12's `event_sink` addition) -- reproduced here rather than calling that
-    function directly because this test needs the real gRPC submission step in place of
-    its in-process `aggregation_server.submit_update` call.
-
-    If `fail_hospital_id` is set, that hospital's submission is made to fail (a simulated
-    dropped connection, the same kind of failure Module 8's resilience tests inject) --
-    the round must still complete with the remaining hospitals.
-    """
-    dashboard_server.emit(
-        DashboardEvent(event_type=EventType.ROUND_STARTED, source="server", round=ROUND_ID, payload={"num_rounds": 1})
-    )
-    dashboard_server.emit(
-        DashboardEvent(
-            event_type=EventType.ENCRYPTION_UPDATED, source="server",
-            payload={"ckks_enabled": True, "tls_status": "Active", "encryption_status": "context ready"},
-        )
-    )
-
-    submitted: list[str] = []
-    failed: list[str] = []
-
-    for hospital in hospitals:
-        dashboard_server.emit(
-            DashboardEvent(event_type=EventType.CLIENT_TRAINING, source=hospital.hospital_id, round=ROUND_ID)
-        )
-        pre_round = get_parameters(hospital.model)
-        result = hospital.fit()
-        post_training = get_parameters(hospital.model)
-
-        pre_flat = np.concatenate([a.reshape(-1).astype(np.float64) for a in pre_round])
-        post_flat = np.concatenate([a.reshape(-1).astype(np.float64) for a in post_training])
-
-        protected = apply_dp_mechanism(pre_flat, post_flat, dp_config, rng)
-        assert not np.allclose(protected.dp_params, post_flat)  # DP actually changed the update
-
-        dp_record = accountant.record_round(
-            hospital.hospital_id, ROUND_ID, dp_config.clip_norm, dp_config.noise_multiplier, dp_config.delta,
-            protected.delta_norm_before_clip, protected.delta_norm_after_clip,
-        )
-        dashboard_server.emit(
-            DashboardEvent(
-                event_type=EventType.PRIVACY_UPDATED, source=hospital.hospital_id, round=ROUND_ID,
-                payload={
-                    "dp_enabled": True,
-                    "epsilon": dp_record.epsilon_this_round,
-                    "cumulative_epsilon": accountant.cumulative_epsilon(hospital.hospital_id),
-                    "delta": dp_config.delta,
-                    "clip_norm": dp_config.clip_norm,
-                    "noise_multiplier": dp_config.noise_multiplier,
-                },
-            )
-        )
-
-        update = encrypt_model_update(
-            protected.dp_params, specs, public_context_bytes, ckks_config.chunk_size,
-            hospital.hospital_id, ROUND_ID, MODEL_VERSION, result.num_examples,
-        )
-        # Only ciphertext bytes ever leave the hospital -- never a plaintext float array.
-        assert all(isinstance(chunk, bytes) for chunk in update.chunk_ciphertexts)
-
-        try:
-            if hospital.hospital_id == fail_hospital_id:
-                raise ConnectionError(f"simulated dropped connection for {hospital.hospital_id}")
-            channel = create_secure_channel(grpc_config, hospital.hospital_id)
-            try:
-                response = submit_encrypted_update(channel, update, timeout=grpc_config.timeout_seconds)
-            finally:
-                channel.close()
-            assert response.accepted is True
-        except ConnectionError:
-            failed.append(hospital.hospital_id)
-            dashboard_server.emit(
-                DashboardEvent(
-                    event_type=EventType.CLIENT_FAILED, source=hospital.hospital_id, round=ROUND_ID,
-                    payload={"reason": "submission_failed"},
-                )
-            )
-            continue
-
-        submitted.append(hospital.hospital_id)
-        dashboard_server.emit(
-            DashboardEvent(
-                event_type=EventType.CLIENT_TRAINING_COMPLETED, source=hospital.hospital_id, round=ROUND_ID,
-                payload={
-                    "num_examples": result.num_examples,
-                    "train_loss": float(result.final_train_loss),
-                    "train_dice": float(result.final_train_dice),
-                    "train_iou": float(result.final_train_iou),
-                },
-            )
-        )
-
-    # Structural check: the aggregation server never holds a CKKS secret key.
-    assert not hasattr(aggregation_server, "_context")
-    assert ts.context_from(aggregation_server.public_context_bytes).has_secret_key() is False
-
-    encrypted_aggregate = aggregation_server.aggregate()
-    dashboard_server.emit(
-        DashboardEvent(
-            event_type=EventType.GLOBAL_MODEL_UPDATED, source="server", round=ROUND_ID,
-            payload={"aggregation_mode": "encrypted (ciphertext)"},
-        )
-    )
-
-    reconstructed = key_holder.decrypt_aggregate(
-        encrypted_aggregate.chunk_ciphertexts, encrypted_aggregate.param_specs, encrypted_aggregate.total_examples
-    )
-
-    dashboard_server.emit(
-        DashboardEvent(
-            event_type=EventType.ROUND_COMPLETED, source="server", round=ROUND_ID,
-            payload={"clients_completed": len(submitted), "clients_failed": len(failed), "round_status": "Completed"},
-        )
-    )
-
-    return submitted, failed, reconstructed
 
 
 def _setup(hospital_data_config: BraTSRawConfig, tmp_path: Path, grpc_config: GrpcSecurityConfig, monkeypatch):
@@ -242,7 +100,7 @@ def test_full_stack_dp_ckks_mtls_dashboard_round_completes_end_to_end(
     port = _free_port()
     collected: list[dict] = []
 
-    async def run_scenario() -> None:
+    async def run_scenario():
         state = DashboardState()
         dashboard_server = DashboardWebSocketServer(state, host="127.0.0.1", port=port)
         await dashboard_server.start()
@@ -261,30 +119,35 @@ def test_full_stack_dp_ckks_mtls_dashboard_round_completes_end_to_end(
             collector_task = asyncio.create_task(collect_until_round_completed())
 
             def run_round_sync():
-                return _run_integrated_round(
+                return run_integrated_round(
                     hospitals, ckks_config, dp_config, accountant, rng, key_holder, public_context_bytes,
-                    specs, aggregation_server, grpc_config, dashboard_server,
+                    specs, aggregation_server, grpc_config, round_id=ROUND_ID, model_version=MODEL_VERSION,
+                    event_sink=dashboard_server,
                 )
 
-            submitted, failed, reconstructed = await asyncio.to_thread(run_round_sync)
+            result = await asyncio.to_thread(run_round_sync)
             await collector_task
 
         await dashboard_server.stop()
-        return submitted, failed, reconstructed
+        return result
 
     try:
         result = asyncio.run(run_scenario())
     finally:
         grpc_server.stop(grace=1).wait()
 
-    submitted, failed, reconstructed = result
-
     # All 3 hospitals participated -- no drop in this test.
-    assert set(submitted) == {"hospital_a", "hospital_b", "hospital_c"}
-    assert failed == []
+    assert set(result.submitted_hospital_ids) == {"hospital_a", "hospital_b", "hospital_c"}
+    assert result.failed_hospital_ids == []
+
+    # DP actually engaged for every hospital (not a no-op): the accountant only ever
+    # records a round for a hospital whose update actually went through apply_dp_mechanism.
+    for hospital in hospitals:
+        assert accountant.cumulative_epsilon(hospital.hospital_id) > 0.0
 
     # The global update decrypted successfully and is numerically sane.
     import torch
+    reconstructed = result.reconstructed_state_dict
     assert reconstructed
     for tensor in reconstructed.values():
         assert isinstance(tensor, torch.Tensor)
@@ -322,7 +185,7 @@ def test_hospital_failure_during_integrated_round_still_completes_with_the_rest(
     port = _free_port()
     collected: list[dict] = []
 
-    async def run_scenario() -> None:
+    async def run_scenario():
         state = DashboardState()
         dashboard_server = DashboardWebSocketServer(state, host="127.0.0.1", port=port)
         await dashboard_server.start()
@@ -341,29 +204,28 @@ def test_hospital_failure_during_integrated_round_still_completes_with_the_rest(
             collector_task = asyncio.create_task(collect_until_round_completed())
 
             def run_round_sync():
-                return _run_integrated_round(
+                return run_integrated_round(
                     hospitals, ckks_config, dp_config, accountant, rng, key_holder, public_context_bytes,
-                    specs, aggregation_server, grpc_config, dashboard_server,
-                    fail_hospital_id="hospital_b",
+                    specs, aggregation_server, grpc_config, round_id=ROUND_ID, model_version=MODEL_VERSION,
+                    event_sink=dashboard_server, fail_hospital_id="hospital_b",
                 )
 
-            submitted, failed, reconstructed = await asyncio.to_thread(run_round_sync)
+            result = await asyncio.to_thread(run_round_sync)
             await collector_task
 
         await dashboard_server.stop()
-        return submitted, failed, reconstructed
+        return result
 
     try:
         result = asyncio.run(run_scenario())
     finally:
         grpc_server.stop(grace=1).wait()
 
-    submitted, failed, reconstructed = result
-
-    assert set(submitted) == {"hospital_a", "hospital_c"}
-    assert failed == ["hospital_b"]
+    assert set(result.submitted_hospital_ids) == {"hospital_a", "hospital_c"}
+    assert result.failed_hospital_ids == ["hospital_b"]
 
     import torch
+    reconstructed = result.reconstructed_state_dict
     assert reconstructed
     for tensor in reconstructed.values():
         assert isinstance(tensor, torch.Tensor)

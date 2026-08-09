@@ -1,11 +1,40 @@
-# System Architecture (Module 12)
+# System Architecture (Modules 12–13)
 
 This is a simulated research/portfolio project. **It is not clinically validated and
 makes no HIPAA/GDPR compliance claim** — see `docs/security.md`'s disclaimer.
 
-This page is a system-level map across all 11 prior modules. It cross-references the
+This page is a system-level map across all prior modules. It cross-references the
 detailed per-module docs rather than duplicating them — follow the links for the actual
 mechanics, threat models, and test evidence behind each box below.
+
+## Simplified flow
+
+```
+Hospital A     Hospital B     Hospital C
+     |              |              |
+     +------ Local training -------+
+                    |
+                    v
+        Differential Privacy (clip + noise)
+                    |
+                    v
+        CKKS homomorphic encryption
+                    |
+                    v
+              TLS / gRPC
+                    |
+                    v
+            Federated server
+                    |
+                    v
+        Encrypted aggregation
+                    |
+                    v
+              Global model
+                    |
+                    v
+               Dashboard
+```
 
 ## End-to-end data/control flow
 
@@ -72,7 +101,8 @@ test" below.
 | `server/federated/encrypted/` | 9 | CKKS homomorphic aggregation (`KeyHolder`, `EncryptedAggregationServer`) | `docs/homomorphic_encryption.md` |
 | `server/federated/dp/` | 10 | Client-level DP: clip, noise, privacy accounting | `docs/differential_privacy.md` |
 | `server/dashboard/` + `dashboard/` | 11 | WebSocket event bridge + React/Recharts UI | `docs/dashboard.md` |
-| `server/tests/test_final_integration.py` | 12 | DP+CKKS+mTLS+dashboard composed in one round | this page + `docs/final_validation_report.md` |
+| `server/federated/integrated_round.py` | 12/13 | The DP+CKKS+mTLS+dashboard round composition, promoted to production code in Module 13 so `server/tests/test_final_integration.py` and the demo entry point share exactly one implementation | this page + `docs/final_validation_report.md` |
+| `server/demo/` + `scripts/run_demo.py` | 13 | Single demo entry point: real DP+CKKS+mTLS+dashboard round, on synthetic (DEMO MODE) or real (LIVE MODE) data | README Section 13 |
 
 ## Key-ownership summary (full detail in `docs/security.md` / `docs/homomorphic_encryption.md`)
 
@@ -123,3 +153,32 @@ orchestration path rather than modified. The one small addition to production co
 parameter (default `None`, zero behavior change) so the encrypted round loop can report
 its own progress to a dashboard — the same pattern Module 11 already used for the
 plaintext path.
+
+## Module 13: demo mode
+
+Module 13 added no new ML/privacy/encryption/federated-learning mechanism — it is
+polish, documentation, and a demo entry point on top of an already-complete system.
+
+Two changes to production code:
+
+1. **`server/federated/integrated_round.py`** (new): the round-composition logic Module
+   12's integration test proved correct was promoted from test-only code into this
+   production module, so it has exactly one implementation. `server/tests/
+   test_final_integration.py` and `server/demo/run_demo.py` both call it — no
+   duplicated orchestration logic.
+2. **`server/demo/`** (new) + **`scripts/run_demo.py`** (new): a single entry point that
+   starts a real dashboard WebSocket server, generates real dev mTLS certificates, starts
+   a real `EncryptedAggregationServer`-backed gRPC server, and runs one real
+   `run_integrated_round` — on small synthetic (non-medical) data by default (`DEMO_MODE`,
+   defaulting to `true`), or real local BraTS2020 data with `--live`. The dashboard's
+   `SYSTEM_READY` event now carries an honest `mode` field (`"DEMO MODE"` / `"LIVE MODE"`)
+   so the frontend can show a prominent, truthful mode badge — a small, additive change
+   to `server/dashboard/events.py`'s payload allowlist and `state.py`, not a new
+   mechanism.
+
+Everything else Module 13 touched is documentation (this page, `docs/security.md`
+already existed; `docs/threat_model.md`, `docs/websocket_events.md`,
+`docs/security_checklist.md`, `docs/interview_guide.md`, `docs/project_description.md`
+are new) or the frontend's presentation layer (a mode badge and a project-status panel
+in `dashboard/src/`, both reading already-existing state — no new event types, no new
+computation).
