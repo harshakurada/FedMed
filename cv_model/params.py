@@ -1,17 +1,24 @@
-"""Conversion helpers between PyTorch state_dicts and Flower's NDArrays wire format.
+"""Conversion helpers between PyTorch state_dicts and a plain list-of-ndarrays wire format.
 
-Both the central server (building the initial global weights) and every
-hospital node (sending/receiving local updates each round) need the same
-conversion, so it lives here once instead of being duplicated in `server/`
-and `hospital_nodes/`.
+Both the central server and every hospital node (sending/receiving local
+updates each round) need the same conversion, so it lives here once instead
+of being duplicated in `server/` and `hospital_nodes/`.
+
+`NDArrays` is intentionally just `list[np.ndarray]` (the same shape as
+Flower's own `flwr.common.NDArrays` alias) rather than importing that type
+from `flwr` -- `cv_model/` and `hospital_nodes/`'s node-abstraction code
+(Module 6) must not depend on Flower; only `hospital_nodes/client_app.py`
+(the actual Flower `ClientApp`, wrapping this module) does.
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
 
+import numpy as np
 import torch
-from flwr.common import NDArrays
+
+NDArrays = list[np.ndarray]
 
 
 def get_parameters(model: torch.nn.Module) -> NDArrays:

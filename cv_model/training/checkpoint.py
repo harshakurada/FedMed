@@ -23,6 +23,11 @@ class CheckpointState:
     scheduler_state_dict: dict[str, Any] | None
     data_config: dict[str, Any]
     train_config: dict[str, Any]
+    # None for the centralized baseline; set to a hospital's identity (e.g. "hospital_a")
+    # by hospital_nodes/node.py so a checkpoint file is unambiguous even if moved out of
+    # its per-hospital directory.
+    hospital_id: str | None = None
+    metrics: dict[str, Any] | None = None
 
 
 def save_checkpoint(state: CheckpointState, path: Path) -> None:
@@ -36,6 +41,8 @@ def save_checkpoint(state: CheckpointState, path: Path) -> None:
             "scheduler_state_dict": state.scheduler_state_dict,
             "data_config": state.data_config,
             "train_config": state.train_config,
+            "hospital_id": state.hospital_id,
+            "metrics": state.metrics,
         },
         path,
     )
@@ -53,4 +60,6 @@ def load_checkpoint(path: Path, map_location: torch.device | str = "cpu") -> Che
         scheduler_state_dict=raw.get("scheduler_state_dict"),
         data_config=raw.get("data_config", {}),
         train_config=raw.get("train_config", {}),
+        hospital_id=raw.get("hospital_id"),
+        metrics=raw.get("metrics"),
     )

@@ -50,7 +50,7 @@ def _set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _build_optimizer(model: torch.nn.Module, config: TrainingConfig) -> torch.optim.Optimizer:
+def build_optimizer(model: torch.nn.Module, config: TrainingConfig) -> torch.optim.Optimizer:
     if config.optimizer_name == "adam":
         return torch.optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     if config.optimizer_name == "sgd":
@@ -60,7 +60,7 @@ def _build_optimizer(model: torch.nn.Module, config: TrainingConfig) -> torch.op
     raise ValueError(f"Unknown optimizer_name: {config.optimizer_name!r} (expected 'adam' or 'sgd')")
 
 
-def _build_scheduler(optimizer: torch.optim.Optimizer, config: TrainingConfig):
+def build_scheduler(optimizer: torch.optim.Optimizer, config: TrainingConfig):
     if config.scheduler_type == "none":
         return None
     if config.scheduler_type == "step":
@@ -101,8 +101,8 @@ def train_baseline(
     loss_fn = build_loss_function()
     dice_metric = build_dice_metric()
     iou_metric = build_iou_metric()
-    optimizer = _build_optimizer(model, train_config)
-    scheduler = _build_scheduler(optimizer, train_config)
+    optimizer = build_optimizer(model, train_config)
+    scheduler = build_scheduler(optimizer, train_config)
     scaler = torch.amp.GradScaler(device=device.type, enabled=use_amp)
 
     start_epoch = 1
