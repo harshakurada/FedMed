@@ -28,6 +28,10 @@ checkpoints/
 certs/
 .env
 
+# CKKS homomorphic-encryption key material (Module 9) -- never commit the secret context
+keys/
+*.ckks
+
 # Node / React
 dashboard/node_modules/
 dashboard/build/

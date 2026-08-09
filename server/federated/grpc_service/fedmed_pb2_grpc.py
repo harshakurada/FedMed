@@ -39,6 +39,11 @@ class FedMedCoordinationStub:
                 request_serializer=fedmed__pb2.HealthCheckRequest.SerializeToString,
                 response_deserializer=fedmed__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
+        self.SubmitEncryptedUpdate = channel.unary_unary(
+                '/fedmed.FedMedCoordination/SubmitEncryptedUpdate',
+                request_serializer=fedmed__pb2.SubmitEncryptedUpdateRequest.SerializeToString,
+                response_deserializer=fedmed__pb2.SubmitEncryptedUpdateResponse.FromString,
+                _registered_method=True)
 
 
 class FedMedCoordinationServicer:
@@ -53,6 +58,17 @@ class FedMedCoordinationServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubmitEncryptedUpdate(self, request, context):
+        """Module 9: submits one hospital's CKKS-encrypted model update for this round. The
+        server (server/federated/encrypted/aggregator.py) only ever stores and
+        homomorphically aggregates these ciphertexts -- it holds no CKKS secret key and
+        never decrypts an individual submission. Caller identity is re-verified against the
+        already-authenticated client certificate, exactly like HealthCheck.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FedMedCoordinationServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -60,6 +76,11 @@ def add_FedMedCoordinationServicer_to_server(servicer, server):
                     servicer.HealthCheck,
                     request_deserializer=fedmed__pb2.HealthCheckRequest.FromString,
                     response_serializer=fedmed__pb2.HealthCheckResponse.SerializeToString,
+            ),
+            'SubmitEncryptedUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitEncryptedUpdate,
+                    request_deserializer=fedmed__pb2.SubmitEncryptedUpdateRequest.FromString,
+                    response_serializer=fedmed__pb2.SubmitEncryptedUpdateResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -89,6 +110,33 @@ class FedMedCoordination:
             '/fedmed.FedMedCoordination/HealthCheck',
             fedmed__pb2.HealthCheckRequest.SerializeToString,
             fedmed__pb2.HealthCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitEncryptedUpdate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedmed.FedMedCoordination/SubmitEncryptedUpdate',
+            fedmed__pb2.SubmitEncryptedUpdateRequest.SerializeToString,
+            fedmed__pb2.SubmitEncryptedUpdateResponse.FromString,
             options,
             channel_credentials,
             insecure,

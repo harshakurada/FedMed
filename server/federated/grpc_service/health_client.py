@@ -14,6 +14,7 @@ from pathlib import Path
 
 import grpc
 
+from server.federated.encrypted.encryption import EncryptedUpdate
 from server.federated.grpc_service import fedmed_pb2, fedmed_pb2_grpc
 from server.federated.grpc_service.config import GrpcSecurityConfig
 
@@ -42,4 +43,34 @@ def check_health(
         return stub.HealthCheck(request, timeout=timeout)
     except grpc.RpcError:
         logger.warning("HealthCheck failed for %s", hospital_id)
+        raise
+
+
+def submit_encrypted_update(
+    channel: grpc.Channel, update: EncryptedUpdate, timeout: float | None = None
+) -> fedmed_pb2.SubmitEncryptedUpdateResponse:
+    """Sends one hospital's CKKS-encrypted update over the same mTLS channel HealthCheck
+    uses -- only ciphertext bytes and approved metadata (round id, model version, sample
+    count, parameter shape/name/dtype), never a plaintext value or the CKKS secret key."""
+    stub = fedmed_pb2_grpc.FedMedCoordinationStub(channel)
+    request = fedmed_pb2.SubmitEncryptedUpdateRequest(
+        hospital_id=update.hospital_id,
+        round_id=update.round_id,
+        model_version=update.model_version,
+        num_examples=update.num_examples,
+        param_specs=[
+            fedmed_pb2.ParamSpec(name=spec.name, shape=list(spec.shape), dtype=spec.dtype, offset=spec.offset, length=spec.length)
+            for spec in update.param_specs
+        ],
+        chunks=[
+            fedmed_pb2.EncryptedChunk(chunk_index=index, ciphertext=ciphertext)
+            for index, ciphertext in enumerate(update.chunk_ciphertexts)
+        ],
+        total_chunks=len(update.chunk_ciphertexts),
+        context_fingerprint=update.context_fingerprint,
+    )
+    try:
+        return stub.SubmitEncryptedUpdate(request, timeout=timeout)
+    except grpc.RpcError:
+        logger.warning("SubmitEncryptedUpdate failed for %s", update.hospital_id)
         raise

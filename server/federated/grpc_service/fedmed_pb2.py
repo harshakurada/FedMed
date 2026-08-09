@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x66\x65\x64med.proto\x12\x06\x66\x65\x64med\")\n\x12HealthCheckRequest\x12\x13\n\x0bhospital_id\x18\x01 \x01(\t\"Z\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12!\n\x19\x61uthenticated_hospital_id\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t2\\\n\x12\x46\x65\x64MedCoordination\x12\x46\n\x0bHealthCheck\x12\x1a.fedmed.HealthCheckRequest\x1a\x1b.fedmed.HealthCheckResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x66\x65\x64med.proto\x12\x06\x66\x65\x64med\")\n\x12HealthCheckRequest\x12\x13\n\x0bhospital_id\x18\x01 \x01(\t\"Z\n\x13HealthCheckResponse\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12!\n\x19\x61uthenticated_hospital_id\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"W\n\tParamSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05shape\x18\x02 \x03(\x03\x12\r\n\x05\x64type\x18\x03 \x01(\t\x12\x0e\n\x06offset\x18\x04 \x01(\x03\x12\x0e\n\x06length\x18\x05 \x01(\x03\"9\n\x0e\x45ncryptedChunk\x12\x13\n\x0b\x63hunk_index\x18\x01 \x01(\x05\x12\x12\n\nciphertext\x18\x02 \x01(\x0c\"\xf5\x01\n\x1cSubmitEncryptedUpdateRequest\x12\x13\n\x0bhospital_id\x18\x01 \x01(\t\x12\x10\n\x08round_id\x18\x02 \x01(\x05\x12\x15\n\rmodel_version\x18\x03 \x01(\t\x12\x14\n\x0cnum_examples\x18\x04 \x01(\x05\x12&\n\x0bparam_specs\x18\x05 \x03(\x0b\x32\x11.fedmed.ParamSpec\x12&\n\x06\x63hunks\x18\x06 \x03(\x0b\x32\x16.fedmed.EncryptedChunk\x12\x14\n\x0ctotal_chunks\x18\x07 \x01(\x05\x12\x1b\n\x13\x63ontext_fingerprint\x18\x08 \x01(\t\"B\n\x1dSubmitEncryptedUpdateResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\xc2\x01\n\x12\x46\x65\x64MedCoordination\x12\x46\n\x0bHealthCheck\x12\x1a.fedmed.HealthCheckRequest\x1a\x1b.fedmed.HealthCheckResponse\x12\x64\n\x15SubmitEncryptedUpdate\x12$.fedmed.SubmitEncryptedUpdateRequest\x1a%.fedmed.SubmitEncryptedUpdateResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,6 +35,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_HEALTHCHECKREQUEST']._serialized_end=65
   _globals['_HEALTHCHECKRESPONSE']._serialized_start=67
   _globals['_HEALTHCHECKRESPONSE']._serialized_end=157
-  _globals['_FEDMEDCOORDINATION']._serialized_start=159
-  _globals['_FEDMEDCOORDINATION']._serialized_end=251
+  _globals['_PARAMSPEC']._serialized_start=159
+  _globals['_PARAMSPEC']._serialized_end=246
+  _globals['_ENCRYPTEDCHUNK']._serialized_start=248
+  _globals['_ENCRYPTEDCHUNK']._serialized_end=305
+  _globals['_SUBMITENCRYPTEDUPDATEREQUEST']._serialized_start=308
+  _globals['_SUBMITENCRYPTEDUPDATEREQUEST']._serialized_end=553
+  _globals['_SUBMITENCRYPTEDUPDATERESPONSE']._serialized_start=555
+  _globals['_SUBMITENCRYPTEDUPDATERESPONSE']._serialized_end=621
+  _globals['_FEDMEDCOORDINATION']._serialized_start=624
+  _globals['_FEDMEDCOORDINATION']._serialized_end=818
 # @@protoc_insertion_point(module_scope)

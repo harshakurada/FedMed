@@ -1,14 +1,16 @@
-// FedMed coordination contract (Module 8).
+// FedMed coordination contract (Module 8, extended in Module 9).
 //
-// This is deliberately NOT the transport FedAvg's model-parameter/metric traffic uses --
-// that stays Flower's own gRPC (its SuperLink/SuperNode deployment engine), configured
-// with real TLS. This tiny service covers what doesn't exist anywhere else in the
-// architecture: a hospital proving its identity over a mutually-authenticated channel.
-// Flower's own Fleet API only supports one-way TLS (no client certificates), so this is
-// also the only place in the project genuine mutual TLS is exercised.
+// This is deliberately NOT the transport FedAvg's plaintext model-parameter/metric
+// traffic uses -- that stays Flower's own gRPC (its SuperLink/SuperNode deployment
+// engine), configured with real TLS. This service covers what doesn't exist anywhere
+// else in the architecture: a hospital proving its identity over a mutually-
+// authenticated channel (HealthCheck, Module 8), and -- Module 9 -- submitting a CKKS-
+// encrypted model update over that same authenticated channel.
 //
-// No raw MRI data, segmentation masks, patient identifiers, or model-parameter payloads
-// are ever carried here -- only hospital identity and health/status information.
+// No raw MRI data, segmentation masks, patient identifiers, plaintext model parameters,
+// or CKKS secret-key material are ever carried here -- only hospital identity,
+// health/status information, ciphertext bytes, and approved coordination metadata
+// (round id, model version, sample count, parameter shape/name/dtype -- never a value).
 
 syntax = "proto3";
 
@@ -19,6 +21,13 @@ service FedMedCoordination {
   // `authenticated_hospital_id` is filled in by the server from the verified client
   // certificate's Common Name -- never trusted from the request body alone.
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // Module 9: submits one hospital's CKKS-encrypted model update for this round. The
+  // server (server/federated/encrypted/aggregator.py) only ever stores and
+  // homomorphically aggregates these ciphertexts -- it holds no CKKS secret key and
+  // never decrypts an individual submission. Caller identity is re-verified against the
+  // already-authenticated client certificate, exactly like HealthCheck.
+  rpc SubmitEncryptedUpdate(SubmitEncryptedUpdateRequest) returns (SubmitEncryptedUpdateResponse);
 }
 
 message HealthCheckRequest {
@@ -29,4 +38,39 @@ message HealthCheckResponse {
   bool healthy = 1;
   string authenticated_hospital_id = 2;
   string message = 3;
+}
+
+// Metadata for one named model parameter tensor -- shape/name/dtype only, never a value.
+message ParamSpec {
+  string name = 1;
+  repeated int64 shape = 2;
+  string dtype = 3;
+  int64 offset = 4;
+  int64 length = 5;
+}
+
+// One CKKS ciphertext chunk (TenSEAL-native serialization -- never pickle).
+message EncryptedChunk {
+  int32 chunk_index = 1;
+  bytes ciphertext = 2;
+}
+
+message SubmitEncryptedUpdateRequest {
+  string hospital_id = 1;
+  int32 round_id = 2;
+  string model_version = 3;
+  int32 num_examples = 4;
+  repeated ParamSpec param_specs = 5;
+  repeated EncryptedChunk chunks = 6;
+  int32 total_chunks = 7;
+  // SHA-256 fingerprint of the public CKKS context this update was encrypted under --
+  // lets the server reject a wrong-context update structurally, since CKKS decryption
+  // itself does not fail closed on a context mismatch (see
+  // server/federated/encrypted/fingerprint.py).
+  string context_fingerprint = 8;
+}
+
+message SubmitEncryptedUpdateResponse {
+  bool accepted = 1;
+  string message = 2;
 }
