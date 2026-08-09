@@ -11,6 +11,11 @@ experiment. See docs/homomorphic_encryption.md's "Performance" section for measu
 encryption/aggregation/decryption timing -- CKKS cost scales with parameter count, and
 this project's approved technologies don't include anything that would make a full
 multi-round encrypted 3D U-Net run fast.
+
+Module 10: an optional `dp_config` clips + noises each hospital's own update (see
+server/federated/dp/) before it is handed to `encrypt_model_update` below -- everything
+else in this file is unchanged. `dp_config=None` (the default) is byte-for-byte the
+original Module 9 behavior; this is what keeps Module 9's own tests passing unmodified.
 """
 
 from __future__ import annotations
@@ -26,12 +31,15 @@ from cv_model.brats.config import BraTSRawConfig
 from cv_model.params import get_parameters
 from cv_model.training.config import TrainingConfig
 from hospital_nodes.simulation import create_hospital_nodes
+from server.federated.dp.accountant import PrivacyAccountant
+from server.federated.dp.dp_config import DPConfig
+from server.federated.dp.dp_update import apply_dp_mechanism
 from server.federated.encrypted.aggregator import EncryptedAggregationServer
 from server.federated.encrypted.ckks_config import CKKSConfig
 from server.federated.encrypted.encryption import encrypt_model_update
 from server.federated.encrypted.key_holder import KeyHolder
 from server.federated.encrypted.results import EncryptedExperimentResults
-from server.federated.encrypted.serialization import flatten_model_parameters
+from server.federated.encrypted.serialization import flatten_model_parameters, unflatten_model_parameters
 
 DEFAULT_RESULTS_PATH = Path("./checkpoints/encrypted/results/results.json")
 
@@ -43,9 +51,23 @@ def run_encrypted_round_smoke_test(
     experiment_name: str = "encrypted_round_smoke_test",
     round_id: int = 1,
     model_version: str = "v1",
+    dp_config: DPConfig | None = None,
+    dp_accountant: PrivacyAccountant | None = None,
+    dp_rng: np.random.Generator | None = None,
 ) -> EncryptedExperimentResults:
+    """`dp_config`/`dp_accountant`/`dp_rng` are all optional and default to the original
+    Module 9 behavior (no DP). When `dp_config` is provided and enabled, pass a
+    `PrivacyAccountant` too (so cumulative epsilon actually accumulates across calls --
+    the accountant is never created fresh per round internally) and, for reproducible
+    tests, a seeded `dp_rng`; a real experiment should leave `dp_rng=None` so an unseeded
+    `np.random.default_rng()` is used (never a fixed seed in production).
+    """
     ckks_config = ckks_config or CKKSConfig()
     train_config = base_train_config or TrainingConfig()
+    dp_enabled = dp_config is not None and dp_config.enabled
+    if dp_enabled and dp_accountant is None:
+        raise ValueError("dp_config is enabled but no dp_accountant was provided -- pass one so epsilon accumulates.")
+    rng = dp_rng if dp_rng is not None else np.random.default_rng()
 
     hospitals, _split = create_hospital_nodes(data_config, base_train_config=train_config, local_epochs=1)
 
@@ -58,10 +80,34 @@ def run_encrypted_round_smoke_test(
     aggregation_server: EncryptedAggregationServer | None = None
 
     for hospital in hospitals:
+        pre_round_ndarrays = get_parameters(hospital.model)  # captured before fit() -- this round's starting point
         result = hospital.fit()
+        post_training_ndarrays = get_parameters(hospital.model)
         flattened, specs = flatten_model_parameters(hospital.model.state_dict())
         if aggregation_server is None:
             aggregation_server = EncryptedAggregationServer(public_context_bytes, specs, round_id, model_version)
+
+        if dp_enabled:
+            pre_flat = np.concatenate([a.reshape(-1).astype(np.float64) for a in pre_round_ndarrays])
+            post_flat = np.concatenate([a.reshape(-1).astype(np.float64) for a in post_training_ndarrays])
+            protected = apply_dp_mechanism(pre_flat, post_flat, dp_config, rng)
+            flattened = protected.dp_params
+            dp_accountant.record_round(
+                hospital.hospital_id,
+                round_id,
+                dp_config.clip_norm,
+                dp_config.noise_multiplier,
+                dp_config.delta,
+                protected.delta_norm_before_clip,
+                protected.delta_norm_after_clip,
+            )
+            # The plaintext comparison below must stay apples-to-apples with whatever
+            # was actually encrypted -- otherwise max_abs_error/success would measure DP
+            # noise magnitude (large, and *expected*) instead of CKKS's own precision
+            # (the thing this comparison exists to isolate). Reconstruct the DP-protected
+            # values back into the same NDArrays layout post_training_ndarrays already has.
+            dp_state = unflatten_model_parameters(flattened, specs)
+            post_training_ndarrays = [dp_state[spec.name].numpy() for spec in specs]
 
         start = time.perf_counter()
         update = encrypt_model_update(
@@ -78,7 +124,7 @@ def run_encrypted_round_smoke_test(
         ciphertext_size_bytes += sum(len(chunk) for chunk in update.chunk_ciphertexts)
 
         aggregation_server.submit_update(update)
-        fit_results.append((get_parameters(hospital.model), result.num_examples))
+        fit_results.append((post_training_ndarrays, result.num_examples))
 
     assert aggregation_server is not None  # at least one hospital, guaranteed by create_hospital_nodes
 
