@@ -39,6 +39,13 @@ class RoundRecord:
     client_dice: float | None
     client_iou: float | None
     duration_seconds: float
+    # Hospitals whose fit() call raised (a dropped connection, in a live deployment) --
+    # excluded from aggregation, never given fake/substitute parameters. Module 8.
+    failed_hospital_ids: list[str] = field(default_factory=list)
+    # Hospitals whose fit() result echoed a round number other than this one -- excluded
+    # from aggregation so a stale/delayed update can never be applied to a newer global
+    # model. Module 8.
+    stale_hospital_ids: list[str] = field(default_factory=list)
 
 
 @dataclass

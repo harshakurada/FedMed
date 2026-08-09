@@ -29,5 +29,10 @@ def build_strategy(
         # flwr.server.strategy.aggregate.aggregate) -- never a plain 3-way average.
         fit_metrics_aggregation_fn=weighted_average,
         evaluate_metrics_aggregation_fn=weighted_average,
+        # Tells every sampled hospital which round it's training for (Flower's own
+        # extensibility hook -- not a parallel mechanism). Module 8: HospitalNodeClient
+        # echoes this back in its fit() metrics so a stale/delayed response naming an
+        # old round can be detected and dropped rather than applied to a newer model.
+        on_fit_config_fn=lambda server_round: {"round": server_round},
         initial_parameters=initial_parameters,
     )

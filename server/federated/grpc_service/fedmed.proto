@@ -1,0 +1,32 @@
+// FedMed coordination contract (Module 8).
+//
+// This is deliberately NOT the transport FedAvg's model-parameter/metric traffic uses --
+// that stays Flower's own gRPC (its SuperLink/SuperNode deployment engine), configured
+// with real TLS. This tiny service covers what doesn't exist anywhere else in the
+// architecture: a hospital proving its identity over a mutually-authenticated channel.
+// Flower's own Fleet API only supports one-way TLS (no client certificates), so this is
+// also the only place in the project genuine mutual TLS is exercised.
+//
+// No raw MRI data, segmentation masks, patient identifiers, or model-parameter payloads
+// are ever carried here -- only hospital identity and health/status information.
+
+syntax = "proto3";
+
+package fedmed;
+
+service FedMedCoordination {
+  // Proves a hospital can reach the server over an authenticated TLS/mTLS channel.
+  // `authenticated_hospital_id` is filled in by the server from the verified client
+  // certificate's Common Name -- never trusted from the request body alone.
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string hospital_id = 1;
+}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string authenticated_hospital_id = 2;
+  string message = 3;
+}

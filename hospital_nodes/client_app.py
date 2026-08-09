@@ -39,6 +39,12 @@ class HospitalNodeClient(NumPyClient):
             "train_dice": result.final_train_dice,
             "train_iou": result.final_train_iou,
         }
+        # Echo back whatever round the server said this was (on_fit_config_fn,
+        # server/federated/strategy.py) -- reported, not invented, so the server can
+        # detect a stale/delayed response naming an old round. Absent if the caller
+        # didn't set it (e.g. a direct test call), never fabricated.
+        if "round" in config:
+            metrics["round"] = config["round"]
         if result.final_val_dice is not None:
             metrics["val_dice"] = result.final_val_dice
         if result.final_val_iou is not None:

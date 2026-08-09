@@ -1,18 +1,23 @@
 """The federated experiment: real FedAvg over the 3 real hospital nodes, in-process.
 
-**Why in-process, not a live network run:** Flower 1.33 offers a live deployment
-(`flower-superlink` + `flower-supernode` per hospital + `flwr run`), which is real gRPC
-over sockets -- explicitly out of scope for this module (gRPC/TLS belong to a later
-module). It also offers a Simulation Engine (`flwr.simulation.run_simulation`), but its
-only backend requires the `ray` package, which is not installed and is not one of this
-module's approved technologies. So this module calls Flower's own `FedAvg` strategy
-directly: `configure_fit`/`aggregate_fit`/`evaluate`/`configure_evaluate`/
-`aggregate_evaluate` never touch the network themselves -- they only read/write
-`FitRes`/`EvaluateRes` objects. The only networked piece in a live deployment is
-`ClientProxy.fit()/.evaluate()` dispatching over gRPC; `server/federated/client_proxy.py`'s
+**Why in-process, not a live network run:** Flower's Simulation Engine
+(`flwr.simulation.run_simulation`) requires the `ray` package, which is not installed and
+is not one of this project's approved technologies -- so this module calls Flower's own
+`FedAvg` strategy directly: `configure_fit`/`aggregate_fit`/`evaluate`/
+`configure_evaluate`/`aggregate_evaluate` never touch the network themselves -- they only
+read/write `FitRes`/`EvaluateRes` objects. The only networked piece in a live deployment
+is `ClientProxy.fit()/.evaluate()` dispatching over gRPC; `server/federated/client_proxy.py`'s
 `InProcessClientProxy` replaces only that one call with a direct Python call. Everything
 else that runs here -- strategy construction, client sampling, weighted aggregation -- is
 genuine, unmodified Flower code. See `docs/federated_training.md` for the full writeup.
+
+Module 8 adds real gRPC + TLS as Flower's actual live-deployment transport
+(`flower-superlink`/`flower-supernode`, see `docs/secure_communication.md`) plus a small
+mutual-TLS coordination service (`server/federated/grpc_service/`) -- neither replaces
+this in-process orchestrator, which remains how the round loop itself is proven and
+tested. Module 8 also adds this file's node-failure and stale-update handling below: a
+hospital's `fit()` raising is caught (not fatal to the round) and a response naming the
+wrong round is rejected before aggregation -- both real, not simulated.
 
 Reuses Module 6's `hospital_nodes.simulation.create_hospital_nodes` (data partitioning +
 node construction) and Module 1's `hospital_nodes.client_app.HospitalNodeClient`
@@ -21,6 +26,7 @@ node construction) and Module 1's `hospital_nodes.client_app.HospitalNodeClient`
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -44,6 +50,8 @@ from server.federated.results import FederatedResults, build_results, compare_to
 from server.federated.strategy import build_strategy
 
 DEFAULT_BASELINE_RESULTS_PATH = Path("./checkpoints/brats_baseline/metrics/results.json")
+
+logger = logging.getLogger("fedmed.federated.experiment")
 
 
 def _save_global_checkpoint(
@@ -143,7 +151,37 @@ def run_federated_experiment(
         round_start = time.time()
 
         fit_pairs = strategy.configure_fit(round_num, parameters, client_manager)
-        fit_results = [(proxy, proxy.fit(fit_ins, timeout=None, group_id=None)) for proxy, fit_ins in fit_pairs]
+
+        # A dropped hospital (a live deployment's connection failure, simulated here by a
+        # raised exception) never gets fake/substitute parameters -- it's simply excluded
+        # from this round's results, exactly like Flower's own dispatch treats an
+        # unreachable client. `failures` is genuine Flower failure-tracking input to
+        # aggregate_fit below, not cosmetic.
+        succeeded: list[tuple] = []
+        failures: list[BaseException] = []
+        failed_hospital_ids: list[str] = []
+        for proxy, fit_ins in fit_pairs:
+            try:
+                succeeded.append((proxy, proxy.fit(fit_ins, timeout=None, group_id=None)))
+            except Exception as exc:  # noqa: BLE001 -- a dropped hospital must never crash the round
+                logger.warning("Round %d: hospital %s failed to fit: %s", round_num, proxy.cid, exc)
+                failures.append(exc)
+                failed_hospital_ids.append(proxy.cid)
+
+        # Stale-update protection: a result whose echoed round (on_fit_config_fn,
+        # strategy.py) doesn't match this round is a late/delayed response and must never
+        # be applied to a newer global model -- excluded from aggregation entirely.
+        fit_results: list[tuple] = []
+        stale_hospital_ids: list[str] = []
+        for proxy, fit_res in succeeded:
+            response_round = fit_res.metrics.get("round")
+            if response_round is not None and response_round != round_num:
+                logger.warning(
+                    "Round %d: rejecting stale update from %s (echoed round %s)", round_num, proxy.cid, response_round
+                )
+                stale_hospital_ids.append(proxy.cid)
+                continue
+            fit_results.append((proxy, fit_res))
 
         client_records = [
             ClientRoundRecord(
@@ -158,9 +196,14 @@ def run_federated_experiment(
             for proxy, fit_res in fit_results
         ]
 
-        aggregated_parameters, aggregated_fit_metrics = strategy.aggregate_fit(round_num, fit_results, [])
+        aggregated_parameters, aggregated_fit_metrics = strategy.aggregate_fit(round_num, fit_results, failures)
         if aggregated_parameters is None:
-            raise RuntimeError(f"Round {round_num}: FedAvg aggregation produced no parameters.")
+            raise RuntimeError(
+                f"Round {round_num}: FedAvg aggregation produced no parameters "
+                f"({len(failed_hospital_ids)} failed, {len(stale_hospital_ids)} stale, "
+                f"{len(fit_results)} usable) -- check min_fit_clients against how many "
+                "hospitals are actually available."
+            )
         parameters = aggregated_parameters
         aggregated_ndarrays = parameters_to_ndarrays(parameters)
 
@@ -196,6 +239,8 @@ def run_federated_experiment(
             client_dice=client_dice,
             client_iou=client_iou,
             duration_seconds=time.time() - round_start,
+            failed_hospital_ids=failed_hospital_ids,
+            stale_hospital_ids=stale_hospital_ids,
         )
         history.append(record)
 

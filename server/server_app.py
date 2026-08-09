@@ -42,7 +42,11 @@ def server_fn(context: Context) -> ServerAppComponents:
 
     evaluate_fn = build_centralized_evaluate_fn(DEFAULT_DATA_CONFIG, DEFAULT_TRAIN_CONFIG)
     strategy = build_strategy(DEFAULT_FEDERATED_CONFIG, evaluate_fn, initial_parameters)
-    return ServerAppComponents(strategy=strategy, config=ServerConfig(num_rounds=num_rounds))
+    # Module 8: bounds how long the live deployment waits on a round before giving up --
+    # one unreachable hospital can't block the server indefinitely. None (the default)
+    # means no deadline, matching Flower's own default.
+    server_config = ServerConfig(num_rounds=num_rounds, round_timeout=DEFAULT_FEDERATED_CONFIG.round_timeout_seconds)
+    return ServerAppComponents(strategy=strategy, config=server_config)
 
 
 app = ServerApp(server_fn=server_fn)

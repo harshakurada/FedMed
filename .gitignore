@@ -25,6 +25,7 @@ checkpoints/
 *.pem
 *.key
 *.crt
+certs/
 .env
 
 # Node / React

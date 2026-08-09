@@ -26,6 +26,11 @@ def _env_path(var_name: str, default: str) -> Path:
     return Path(os.environ.get(var_name, default)).expanduser().resolve()
 
 
+def _env_optional_float(var_name: str) -> float | None:
+    raw = os.environ.get(var_name)
+    return None if raw is None else float(raw)
+
+
 @dataclass(frozen=True)
 class FederatedConfig:
     """Immutable configuration for one federated experiment."""
@@ -49,6 +54,17 @@ class FederatedConfig:
 
     seed: int = field(default_factory=lambda: _env_int("FEDMED_FED_SEED", 42))
     checkpoint_dir: Path = field(default_factory=lambda: _env_path("FEDMED_FED_CHECKPOINT_DIR", "./checkpoints/federated"))
+
+    # Module 8: per-round deadline for the *live* Flower deployment (wired into
+    # ServerConfig(round_timeout=...) in server/server_app.py) -- so one unreachable
+    # hospital node can't block a round indefinitely. None means no deadline (Flower's
+    # default). Not meaningful for the in-process orchestrator (server/federated/
+    # experiment.py) -- its proxy calls are synchronous Python calls, not network
+    # round-trips, so there's no wall-clock wait to bound; a dropped hospital there is
+    # instead handled by catching the exception its fit() call raises (see experiment.py).
+    round_timeout_seconds: float | None = field(
+        default_factory=lambda: _env_optional_float("FEDMED_FED_ROUND_TIMEOUT")
+    )
 
     # Recorded for a future live deployment (a later module, once gRPC/TLS is in scope) --
     # unused by this module's in-process round orchestrator.
