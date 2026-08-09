@@ -2,95 +2,189 @@
 
 **Domain:** Privacy-Preserving Machine Learning (PPML) & Healthcare
 
+This is a simulated research/portfolio project (Modules 1–12, complete). **It is not
+clinically validated, makes no claim of medical efficacy, and is not HIPAA/GDPR
+compliant** — see "Security & Privacy Disclaimer" at the bottom of this page.
+
 ## Problem Statement
 
-Training highly accurate ML models for rare diseases requires massive patient datasets. However, strict data privacy laws (HIPAA/GDPR) prevent hospitals from sharing raw patient data with centralized servers.
+Training highly accurate ML models for rare diseases requires massive patient datasets.
+However, strict data privacy laws (HIPAA/GDPR) prevent hospitals from sharing raw patient
+data with centralized servers.
 
-## Use Case
+## Solution
 
-Researchers at three different global hospitals collaborate to train a brain tumor segmentation model using MRI scans. Instead of pooling their private data, they deploy FedMed nodes:
+Three simulated hospitals collaborate to train a brain tumor segmentation model on MRI
+scans without ever sharing raw patient data:
 
-1. The central server sends the untrained PyTorch model to each hospital.
-2. The models train locally on private data.
-3. Only the encrypted weight updates are sent back and aggregated (using Secure MultiParty Computation) to update the global model — preserving absolute patient privacy.
+1. Each hospital trains a local 3D U-Net on its own private patient partition.
+2. Each hospital clips and adds calibrated Gaussian noise to its own contribution
+   (client-level Differential Privacy) before anything leaves it.
+3. Each hospital homomorphically encrypts (CKKS) its DP-protected update and submits it
+   over a mutually-authenticated TLS channel.
+4. The central server aggregates the three encrypted updates **without ever decrypting
+   any individual one** — only the final aggregate is decrypted, by a party distinct from
+   the server.
+5. Progress streams live to a React dashboard via WebSocket, from an explicit
+   payload-safety allowlist that structurally cannot carry raw data or secrets.
 
-## Key Modules
+## Architecture
+
+```
+BraTS2020 -> preprocessing -> patient-level hospital partitioning
+   -> 3 Hospital Nodes (local 3D U-Net training)
+   -> per-hospital Differential Privacy (clip + noise)
+   -> per-hospital CKKS homomorphic encryption
+   -> mutual-TLS gRPC transport
+   -> homomorphic FedAvg aggregation (server never decrypts an individual update)
+   -> authorized decrypt -> global model -> centralized evaluation
+   -> WebSocket dashboard events -> React + Recharts UI
+```
+
+Full component-by-component map, key-ownership table, and the Module 12 integration test
+that proves this entire chain works together: [`docs/architecture.md`](docs/architecture.md).
+
+## Technologies
 
 | Module | Stack | Description |
 |---|---|---|
-| **Federated Learning Framework** | Flower / PySyft | Orchestrates the decentralized training loop, managing communication between the central server and isolated client nodes. |
-| **Computer Vision Model** | PyTorch / MONAI | A 3D U-Net architecture designed for segmenting medical imagery (MRI/CT scans). |
-| **Privacy & Encryption** | TenSEAL | Implements Homomorphic Encryption, allowing the central server to aggregate model weights while they remain mathematically encrypted. |
-| **Training Dashboard** | React / Recharts | Monitoring UI showing the global model's convergence and accuracy metrics across distributed epochs. |
+| **Federated Learning Framework** | Flower (`flwr`) | Real `FedAvg` orchestration across 3 hospital nodes, plus Flower's own gRPC/TLS live deployment engine |
+| **Computer Vision Model** | PyTorch / MONAI | 3D U-Net for MRI tumor segmentation |
+| **Secure Transport** | gRPC + mutual TLS | Hospital identity tied to a client certificate; a small custom coordination service, since Flower's own transport only supports one-way TLS |
+| **Homomorphic Encryption** | TenSEAL (CKKS) | Server aggregates ciphertexts; never decrypts an individual hospital's update |
+| **Differential Privacy** | NumPy (from first principles) | Client-level clip + Gaussian noise + real privacy accounting; no Opacus/TF-Privacy/PySyft |
+| **Monitoring Dashboard** | Python `websockets` + React / Recharts | Real-time, read-only observation layer; no training/model/crypto logic of its own |
 
-## Current Development Stage
+## Model
 
-**Implemented:**
-- `cv_model/` — 3D U-Net (MONAI), Dice loss/metric. Verified via `python -m cv_model.sanity_check` (synthetic data, no dataset download).
-- `cv_model/brats/` — a **locally-supplied** BraTS dataset pipeline (discovery, deep validation, patient-level train/val split, MONAI transforms, PyTorch/MONAI `Dataset`/`DataLoader`, dev-time slice inspection) verified end-to-end against a real local BraTS2020 copy (9 usable studies) plus a synthetic-fixture test suite (`pytest cv_model/brats/tests`, 20/20 passing). Full details, including the exact label convention and how to point it at your own data: [`docs/dataset.md`](docs/dataset.md). This is separate from `cv_model/dataset.py` (below), which targets a different data source.
-- `cv_model/training/` — 3D U-Net centralized training baseline: training/validation loops, Dice+IoU metrics, checkpointing (with resume), optional early stopping/LR scheduling, and a small inference/visual-inspection utility. Also the **experiment layer** (`experiment.py`, `results.py`, `plots.py`, `final_evaluation.py`): config validation, a pre-flight data-leakage check, checkpoint-reproducibility verification, and a `results.json` record designed for later comparison against federated results. Full pipeline (leakage check → train → verify checkpoint → evaluate → results/plots) verified end-to-end against real local BraTS2020 data at small scale (see [`docs/training.md`](docs/training.md)). **The official multi-epoch centralized baseline has not been run yet** — run `python -m cv_model.training.run_baseline` explicitly to produce one.
-- `hospital_nodes/` — a framework-independent hospital-node architecture (no Flower import): patient-level 3-way data partitioning (`partition.py`, built on Module 3/5's preserved global train/val split), the `HospitalNode` class (`node.py`, own model instance + local training reusing `cv_model.training` unchanged), and copy-safe model-state utilities (`model_state.py`). Verified against real local BraTS2020 data — 3 independent hospitals (sizes 3/2/2), model independence confirmed (training one hospital never changes another's weights). See [`docs/hospitals.md`](docs/hospitals.md).
-- `server/federated/` + `hospital_nodes/client_app.py` — **FedAvg federated training loop**: real Flower `FedAvg` (weighted by each hospital's sample count) over the 3 real `HospitalNode`s, round orchestration run in-process, centralized evaluation against Module 5's held-out global validation set, round history/checkpoints/convergence plots, an automatic comparison against the centralized baseline, and (Module 8) node-failure/stale-update handling — a dropped hospital never blocks a round or gets fake parameters, and a delayed response naming an old round is rejected before aggregation. Run the real thing: `python -m server.federated.run_experiment`. Full details: [`docs/federated_training.md`](docs/federated_training.md).
-- `server/federated/grpc_service/` — **secure gRPC + TLS** (Module 8): Flower's own SuperLink/SuperNode deployment engine is real gRPC and now configured with real TLS (its native `--ssl-*`/`--root-certificates` flags) for FedAvg's actual traffic; a small additional genuinely-mutual-TLS gRPC service (`HealthCheck` + Module 9's `SubmitEncryptedUpdate`) proves hospital identity tied to a client certificate — something Flower's own transport doesn't support. Dev certs via `python scripts/generate_dev_certs.py`. Full details, including exact PowerShell commands and TLS troubleshooting: [`docs/secure_communication.md`](docs/secure_communication.md).
-- `server/federated/encrypted/` — **TenSEAL CKKS homomorphic encryption** (Module 9): the aggregation server combines the 3 hospitals' model updates via real homomorphic addition/weighted-sum on ciphertexts and **never decrypts an individual update** (structurally guaranteed — the server-side code has no path to a private CKKS context, verified by a dedicated test, not just documented); only the final aggregate is decrypted, by a `KeyHolder` distinct from the server. Entirely additive — Module 7's plaintext FedAvg is untouched and still runs via `python -m server.federated.run_experiment`; run the encrypted path with `python -m server.federated.encrypted.run_encrypted_round`. Real measured numerical error (weighted 3-client aggregation vs. plaintext FedAvg): max abs error ≈ 6×10⁻⁸. Verified end-to-end on the actual FedMed 3D U-Net (4.81M parameters) and over the real mTLS gRPC channel, not just small hand-built tensors. Full details, including the threat model and key-ownership table: [`docs/homomorphic_encryption.md`](docs/homomorphic_encryption.md). Supersedes `encryption/config.py` (Module 1's original CKKS placeholder — never implemented, kept for history).
-- `server/federated/dp/` — **Differential Privacy** (Module 10): each hospital clips (L2, bound `C`) and adds calibrated Gaussian noise to its own per-round contribution (`Δ = post_training_params − pre_round_global_params`) *before* Module 9's CKKS encryption — the raw update never leaves the hospital. **Privacy unit: client-level (hospital-level), explicitly not patient-level** — see [`docs/differential_privacy.md`](docs/differential_privacy.md) for why. A real `PrivacyAccountant` derives epsilon from the configured mechanism (classical Gaussian mechanism bound; cumulative budget via basic composition, conservative not tight — no fabricated numbers) and never resets between rounds; optional budget enforcement stops further rounds rather than silently exceeding a configured limit. Entirely additive — Module 7's plaintext FedAvg and Module 9's un-noised encrypted path are both untouched (`dp_config=None` is byte-for-byte Module 9's original behavior). Real measured 3-arm comparison (Plain FedAvg / DP FedAvg / DP+CKKS FedAvg, same hospitals, same evaluation): DP costs real Dice (≈0.233 → ≈0.204 on tiny dev data), CKKS adds negligible extra error (~1e-7) on top of DP's own noise. No Opacus/TF-Privacy/PySyft — clipping, noise, and accounting are implemented from first principles in NumPy.
-- `server/dashboard/` + `dashboard/` — **real-time monitoring dashboard** (Module 11): a Python `websockets` server (already an approved, declared-but-unused dependency since Module 1) bridges Module 7's real round loop into 14 dashboard-safe WebSocket events via an explicit payload **allowlist** (a forbidden field like `patient_id`/`secret_key`/`raw_ciphertext` cannot reach a message even by accident — enforced at event construction, not filtered later); a React + Recharts frontend (`dashboard/src/`) shows hospital status, round progress, Dice/IoU/loss/round-duration/privacy-budget/client-participation charts, and privacy/encryption/security panels, with automatic reconnection and no fabricated metrics (unavailable values show "N/A"). Monitoring-only — no training, model, encryption, or privacy logic lives in this layer, and Modules 7–10 are otherwise untouched (`event_sink=None` is byte-for-byte the pre-Module-11 behavior). Node.js was not installed on this machine; installed for this module (`winget install OpenJS.NodeJS.LTS`) so the frontend could be genuinely built and tested, not just written. Full details, including the event schema and security audit: [`docs/dashboard.md`](docs/dashboard.md).
-- Configuration structure for dataset/training paths, hospital identities, federated rounds, gRPC/TLS security, CKKS encryption, DP privacy parameters, and server networking — see `cv_model/config.py`, `cv_model/brats/config.py`, `cv_model/training/config.py`, `hospital_nodes/config.py`, `server/config.py`, `server/federated/config.py`, `server/federated/grpc_service/config.py`, `server/federated/encrypted/ckks_config.py`, `server/federated/dp/dp_config.py`.
+A 3D U-Net (MONAI), Dice + IoU metrics, trained/evaluated identically whether centralized
+or federated so the two are actually comparable. Production default architecture:
+`unet_channels=(16,32,64,128,256)`, 4 downsampling stages, 2 residual units per stage —
+verified against the real FedMed dataset at 4,810,074 parameters
+(`docs/homomorphic_encryption.md`'s performance section).
 
-**Not yet implemented (planned for future modules):**
-- A full centralized baseline training run (only 9 usable local studies right now — enough to verify the pipeline, not to produce a meaningful baseline; the fuller ~369-study BraTS2020 release is needed for that) — the federated experiment has the same current data-scale limit.
-- `cv_model/dataset.py` — an *alternate*, untested path wrapping MONAI's auto-downloading `DecathlonDataset` (MSD Task01_BrainTumour release). Kept from Module 1; not the pipeline used by `cv_model/brats/`.
-- Dashboard authentication (documented as a local development monitoring interface only — see `docs/dashboard.md`).
+## Dataset
+
+A **locally-supplied** BraTS dataset pipeline (never auto-downloaded): discovery, deep
+pixel-level validation, patient-level train/val split, MONAI transforms. Verified
+end-to-end against a real local BraTS2020 copy (9 usable studies — enough to prove the
+pipeline, not enough for a clinically meaningful model; the full ~369-study release would
+be needed for that) plus a synthetic-fixture test suite. Full details, including the
+exact label convention and how to point this at your own data:
+[`docs/dataset.md`](docs/dataset.md).
+
+## Federated Learning
+
+Real Flower `FedAvg` (weighted by each hospital's sample count) over 3 independent
+`HospitalNode`s, with centralized evaluation against a held-out global validation set,
+round history/checkpoints/convergence plots, and node-failure/stale-update handling — a
+dropped hospital never blocks a round or receives fake substitute parameters,
+and a late response naming an old round is rejected before aggregation. Full details:
+[`docs/federated_training.md`](docs/federated_training.md), resilience proof in
+`server/tests/test_federated_resilience.py`.
+
+## Security
+
+Mutual TLS via a small custom gRPC coordination service (hospital identity read from the
+*verified certificate*, never trusted from the request body) alongside Flower's own
+gRPC+TLS live deployment engine for FedAvg's actual traffic. Full threat model, consolidated
+key-ownership table, and the test-file-to-security-property mapping:
+[`docs/security.md`](docs/security.md); transport-layer detail:
+[`docs/secure_communication.md`](docs/secure_communication.md).
+
+## Privacy
+
+Client-level (hospital-level, explicitly **not** patient-level — see
+[`docs/differential_privacy.md`](docs/differential_privacy.md) for why) Differential
+Privacy: each hospital clips and adds calibrated Gaussian noise to its own per-round
+contribution before anything leaves it. A real `PrivacyAccountant` derives epsilon from
+the classical Gaussian mechanism bound and never resets between rounds; optional budget
+enforcement stops further rounds rather than silently exceeding a configured limit.
+
+## Encryption
+
+TenSEAL CKKS homomorphic encryption: the aggregation server combines the 3 hospitals'
+updates via real homomorphic addition/weighted-sum on ciphertexts and **never decrypts an
+individual update** — structurally guaranteed (no code path in the server-side classes
+ever constructs a private CKKS context), verified by a dedicated test, not just
+documented. Only the final aggregate is decrypted, by a `KeyHolder` distinct from the
+server. Measured numerical error vs. plaintext FedAvg: max abs error ≈ 6×10⁻⁸ — see
+[`docs/homomorphic_encryption.md`](docs/homomorphic_encryption.md) for the full threat
+model and key-ownership table.
+
+## Monitoring
+
+A Python `websockets` server bridges the real round loop into WebSocket events via an
+explicit payload **allowlist** — a forbidden field (patient ID, MRI data, secret key,
+raw ciphertext, ...) cannot reach a message even by accident, enforced at event
+construction, not filtered later. A React + Recharts frontend shows hospital status,
+round progress, Dice/IoU/loss/privacy-budget/encryption/TLS panels, with automatic
+reconnection and no fabricated metrics (unavailable values show "N/A"). Monitoring-only —
+no training, model, encryption, or privacy logic lives in this layer. Full details:
+[`docs/dashboard.md`](docs/dashboard.md).
+
+## Results
+
+All numbers below are from real runs against a local BraTS2020 subset (9 valid studies),
+executed as part of Module 12's benchmarking — development-scale numbers proving the
+pipeline mechanics work end to end, not a clinical accuracy claim. Full commands,
+environment details, and the comparability caveats between rows:
+[`docs/experiments.md`](docs/experiments.md).
+
+| Experiment | Global Dice | Global IoU | Notes |
+|---|---|---|---|
+| Centralized baseline (dev-scale, 3 epochs, pooled data) | 0.0259 (val) | 0.0134 (val) | Production architecture, 7 train studies |
+| Plain FedAvg (1 round) | 0.0182 | 0.0093 | No DP, no encryption |
+| DP FedAvg (1 round) | 0.0186 | 0.0095 | epsilon=0.9690 (client-level) |
+| DP + CKKS FedAvg (1 round) | 0.0186 | 0.0095 | Same DP arm, homomorphically aggregated — CKKS costs ~35s aggregation time, no measurable utility loss vs. plaintext DP |
+
+**Full end-to-end validation:** the complete DP + CKKS + mutual-TLS gRPC + dashboard
+pipeline was proven to work together, in one federated round, for the first time in
+Module 12 (`server/tests/test_final_integration.py`), including a hospital-failure
+scenario. 233/233 tests pass across the whole project. Full report:
+[`docs/final_validation_report.md`](docs/final_validation_report.md).
+
+## Limitations
+
+- Development-scale dataset only (9 local BraTS2020 studies) — not enough for a
+  clinically meaningful model; the full ~369-study release would be needed for that.
+- `cv_model/dataset.py` — an *alternate*, untested path wrapping MONAI's
+  auto-downloading `DecathlonDataset`. Kept from Module 1; not the pipeline actually used.
+- Dashboard has no authentication or transport encryption (documented local development
+  interface only).
+- `flwr run` against a live SuperLink/SuperNode deployment hits an unresolved
+  environment-specific connection issue on this Windows/Python 3.14 setup during run
+  *submission* (SuperNode↔SuperLink TLS registration itself works) —
+  [`docs/secure_communication.md`](docs/secure_communication.md).
+- DP's cumulative-epsilon accounting uses basic (conservative) composition, not a tight
+  RDP/moments accountant.
+- Honest-but-curious threat model throughout — no protection against a malicious
+  hospital or a malicious/compromised server. Full threat model:
+  [`docs/security.md`](docs/security.md).
 
 ## Repository Layout
 
 ```
 FedMed/
-├── server/           # Central aggregation server (Flower ServerApp, FedAvg strategy, config)
-├── hospital_nodes/   # Mock hospital client nodes (Flower ClientApp, per-hospital config)
-├── cv_model/         # 3D U-Net (PyTorch/MONAI) model definitions & data pipeline
-├── encryption/       # TenSEAL homomorphic encryption boundary (config only, not yet implemented)
-├── dashboard/        # React + Recharts training/monitoring dashboard (scaffold only)
-├── docs/             # Design notes, architecture diagrams, weekly progress
-└── scripts/          # Setup/orchestration helper scripts
+├── server/           # Central aggregation server: FedAvg, gRPC/TLS, CKKS, DP, dashboard backend
+├── hospital_nodes/   # Independent hospital-node architecture: partitioning, local training
+├── cv_model/         # 3D U-Net (PyTorch/MONAI) model definitions & BraTS data pipeline
+├── dashboard/        # React + Recharts real-time monitoring frontend
+├── docs/             # Per-module design docs + consolidated architecture/security/experiments docs
+└── scripts/          # Setup/orchestration helper scripts (e.g. dev cert generation)
 ```
 
 > Python package folders use underscores (`cv_model`, `hospital_nodes`), not hyphens,
 > since Python cannot `import` a hyphenated module name.
 
-> Each of `cv_model/`, `hospital_nodes/`, `server/`, and `encryption/` owns a `config.py`
-> with its own dataclass of settings (paths, ports, hyperparameters), each overridable via
-> `FEDMED_*` environment variables. No secrets or environment-specific paths are hard-coded
-> at point of use.
-
-## Week-wise Development Plan
-
-### Week 1
-- **PPML Engineering:** Centralized Baseline — train a standard 3D U-Net model on a public MRI dataset (e.g., BraTS) to establish a baseline accuracy metric.
-- **Distributed Systems:** Node Scaffolding — set up the Flower framework; configure 3 distinct mock "Hospital Nodes" running on separate local ports.
-
-### Week 2
-- **PPML Engineering:** Federated Training Loop — partition the dataset across the 3 nodes; implement server logic to broadcast weights, wait for local training, and aggregate results (FedAvg).
-- **Distributed Systems:** Secure Communication — implement gRPC with TLS certificates to secure traffic between the server and nodes.
-
-**Mid-Project Review**
-- **Federated Audit:** Prove the federated model converges and approaches the accuracy of the centralized baseline without ever exposing raw data to the central server.
-- **Node Resilience:** Ensure the training round survives if one of the 3 hospital nodes drops offline mid-epoch.
-
-### Week 3
-- **PPML Engineering:** Homomorphic Encryption — integrate TenSEAL; encrypt PyTorch tensors client-side before sending to the server, requiring the server to aggregate on ciphertext.
-- **Distributed Systems:** Live Metrics — stream loss/accuracy metrics from the central aggregator to a WebSocket endpoint.
-
-### Week 4
-- **PPML Engineering:** Differential Privacy — add controlled statistical noise to weight updates before transmission, mathematically guaranteeing protection against model inversion attacks.
-- **Distributed Systems:** Refine & Polish — build the React dashboard to visualize the training loss curve and final MRI tumor segmentation masks.
-
-**Final Review**
-A masterclass in cryptography and decentralized deep learning — a compliant, privacy-first healthcare AI architecture.
+> Every path/setting-bearing module (`cv_model/`, `hospital_nodes/`, `server/`,
+> `server/federated/*/`) owns a `config.py` with its own dataclass of settings, each
+> overridable via `FEDMED_*` environment variables. No secret or environment-specific
+> path is hard-coded at point of use.
 
 ## Getting Started
 
-```bash
+```powershell
 # Python environment (server / nodes / cv-model / encryption)
 python -m venv .venv          # skip if .venv already exists
 .venv\Scripts\activate
@@ -101,6 +195,43 @@ cd dashboard
 npm install
 npm start
 ```
+
+Point `FEDMED_BRATS_ROOT` at your own local BraTS2020 copy to run anything against real
+data — nothing in this project auto-downloads it. See [`docs/dataset.md`](docs/dataset.md).
+
+```powershell
+# Full test suite (no real dataset required -- synthetic fixtures throughout)
+.venv\Scripts\python.exe -m pytest -q
+
+# The Module 12 end-to-end integration test specifically
+.venv\Scripts\python.exe -m pytest server\tests\test_final_integration.py -v
+```
+
+## Documentation Index
+
+| Doc | Covers |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | System-level component map, data flow, key ownership |
+| [`docs/security.md`](docs/security.md) | Consolidated threat model, key ownership, audit findings |
+| [`docs/experiments.md`](docs/experiments.md) | Benchmark configs, environment, real results |
+| [`docs/final_validation_report.md`](docs/final_validation_report.md) | Module 12's full validation run record |
+| [`docs/dataset.md`](docs/dataset.md) | BraTS pipeline, dataset layout, label convention |
+| [`docs/training.md`](docs/training.md) | Centralized training baseline |
+| [`docs/hospitals.md`](docs/hospitals.md) | Hospital-node partitioning and independence |
+| [`docs/federated_training.md`](docs/federated_training.md) | FedAvg round orchestration |
+| [`docs/secure_communication.md`](docs/secure_communication.md) | gRPC, TLS, mTLS, node resilience |
+| [`docs/homomorphic_encryption.md`](docs/homomorphic_encryption.md) | CKKS encryption, threat model |
+| [`docs/differential_privacy.md`](docs/differential_privacy.md) | DP mechanism, privacy accounting |
+| [`docs/dashboard.md`](docs/dashboard.md) | WebSocket event schema, React dashboard |
+
+## Security & Privacy Disclaimer
+
+FedMed is a research/portfolio implementation of federated learning, homomorphic
+encryption, differential privacy, and secure transport concepts, built and validated
+against a small local dataset subset. **It has not undergone independent security
+review, penetration testing, or formal cryptographic audit. It makes no HIPAA, GDPR, or
+other regulatory compliance claim, and no claim of clinical validation or medical
+efficacy.** Do not use it, as-is, to process real patient data.
 
 ## License
 
