@@ -1,9 +1,10 @@
 # Hospital Nodes & Local Training Architecture (`hospital_nodes/`)
 
-This is a simulated research/portfolio project. **Federated aggregation,
-network communication, encryption, and differential privacy are NOT
-implemented yet** — this module only prepares the hospital-side pieces
-Module 7 (Flower + FedAvg) will later wrap and connect.
+This is a simulated research/portfolio project. **Network communication (gRPC/TLS),
+encryption, and differential privacy are NOT implemented yet** — this module only
+prepares the hospital-side pieces. Federated aggregation (FedAvg) is now implemented in
+Module 7 — see [`docs/federated_training.md`](federated_training.md) — reusing everything
+below unchanged.
 
 ## Why three hospital nodes
 
@@ -109,13 +110,11 @@ on, and conceptually maps onto Flower's `NumPyClient`:
 
 No Flower import exists anywhere in `hospital_nodes/partition.py`,
 `node.py`, `model_state.py`, `simulation.py`, or `config.py` — verified in
-CI-style by `grep` in this module's final verification. (The pre-existing
-`hospital_nodes/client_app.py`, a real Flower `ClientApp` built earlier
-during Module 1's node scaffolding, is untouched by this module and still
-imports `flwr` directly, as its whole purpose requires — Module 7 should
-refactor it to wrap `HospitalNode` rather than its current standalone
-synthetic-data training loop, which predates and duplicates what
-`HospitalNode.local_train()` now does properly.)
+CI-style by `grep` in this module's final verification. `hospital_nodes/client_app.py`
+(the real Flower `ClientApp`) is the one file in this package that does import `flwr`, as
+its whole purpose requires — Module 7 has since refactored it to wrap `HospitalNode`
+(via `HospitalNodeClient`) instead of the standalone synthetic-data training loop it
+started with. See [`docs/federated_training.md`](federated_training.md).
 
 ## Hospital checkpoints
 
@@ -150,7 +149,8 @@ effect of anything else in this project.
 
 ## What's still not implemented
 
-Federated aggregation (FedAvg/FedProx), Flower wiring beyond the
-pre-existing `client_app.py`, gRPC/TLS network communication, TenSEAL
-homomorphic encryption, and differential privacy are all future modules'
-work — none of it exists in `hospital_nodes/`'s Module 6 code.
+Federated aggregation (FedAvg) is implemented — see
+[`docs/federated_training.md`](federated_training.md) (Module 7). gRPC/TLS live network
+communication, TenSEAL homomorphic encryption, and differential privacy remain future
+modules' work — none of it exists in `hospital_nodes/`'s Module 6 code or Module 7's
+in-process federated round orchestration.

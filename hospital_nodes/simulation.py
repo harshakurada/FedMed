@@ -2,8 +2,10 @@
 
 Builds the 3 `HospitalNode`s from a single local BraTS dataset (no Flower,
 no sockets, no subprocesses) and provides a SMALL local-training sanity
-check -- proving the partitioning + node + local-training wiring works
-before Module 7 wraps any of it with Flower.
+check -- proving the partitioning + node + local-training wiring works.
+Module 7's `hospital_nodes/client_app.py` (one hospital per process) and
+`server/federated/evaluation.py` (the server's centralized eval set) both
+build on the helpers below.
 
 Usage:
     python -m hospital_nodes.simulation
@@ -14,7 +16,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from cv_model.brats.config import BraTSRawConfig
-from cv_model.brats.discovery import discover_studies
+from cv_model.brats.discovery import StudyRecord, discover_studies
 from cv_model.brats.split import SplitResult, split_studies
 from cv_model.training.config import TrainingConfig
 from hospital_nodes.config import HOSPITAL_NODES, build_hospital_training_config
@@ -25,19 +27,16 @@ from hospital_nodes.partition import partition_studies, verify_partition_isolati
 NUM_HOSPITALS = len(HOSPITAL_NODES)
 
 
-def create_hospital_nodes(
-    data_config: BraTSRawConfig = None,
-    base_train_config: TrainingConfig | None = None,
-    local_epochs: int = 1,
-    local_val_fraction: float = 0.0,
-) -> tuple[list[HospitalNode], SplitResult]:
+def _discover_split_and_partition(
+    data_config: BraTSRawConfig | None,
+) -> tuple[list[tuple[StudyRecord, ...]], SplitResult, BraTSRawConfig]:
     """Discover studies, apply Module 3/5's existing global train/val split (preserved,
     not recomputed -- keeps federated results comparable to the centralized baseline),
-    partition the TRAINING studies across the 3 hospitals, verify isolation, and build
-    one independent `HospitalNode` per hospital.
+    partition the TRAINING studies across the 3 hospitals, and verify isolation.
 
-    Returns the nodes plus the `SplitResult` so the caller can evaluate against the same
-    shared global validation set the centralized baseline used.
+    Returns the per-hospital partitions, the `SplitResult` (so callers needing only the
+    shared validation studies -- e.g. the server's centralized evaluation -- never have to
+    touch a partition), and the normalized `data_config` actually used.
     """
     data_config = replace(data_config or BraTSRawConfig(), on_incomplete_study="exclude")
 
@@ -54,7 +53,23 @@ def create_hospital_nodes(
         "Partition isolation verified: "
         + ", ".join(f"{name}={len(studies)}" for name, studies in partitions_by_name.items())
     )
+    return partitions, split, data_config
 
+
+def create_hospital_nodes(
+    data_config: BraTSRawConfig = None,
+    base_train_config: TrainingConfig | None = None,
+    local_epochs: int = 1,
+    local_val_fraction: float = 0.0,
+) -> tuple[list[HospitalNode], SplitResult]:
+    """Build one independent `HospitalNode` per hospital (all 3 in this process --
+    Module 7's in-process federated round orchestrator uses this; a real per-process
+    `ClientApp` should use `create_single_hospital_node` instead).
+
+    Returns the nodes plus the `SplitResult` so the caller can evaluate against the same
+    shared global validation set the centralized baseline used.
+    """
+    partitions, split, data_config = _discover_split_and_partition(data_config)
     nodes = [
         HospitalNode(
             studies=partitions[i],
@@ -69,6 +84,43 @@ def create_hospital_nodes(
         for i in range(NUM_HOSPITALS)
     ]
     return nodes, split
+
+
+def create_single_hospital_node(
+    partition_id: int,
+    data_config: BraTSRawConfig = None,
+    base_train_config: TrainingConfig | None = None,
+    local_epochs: int = 1,
+    local_val_fraction: float = 0.0,
+) -> HospitalNode:
+    """Build only the requested hospital's `HospitalNode` -- what one `ClientApp` process
+    needs. Still discovers/splits/partitions all 3 hospitals' studies internally (the
+    partitioning is deterministic and seeded, so every process reproduces the same
+    assignment independently), but constructs a model for only one of them."""
+    partitions, _split, data_config = _discover_split_and_partition(data_config)
+    return HospitalNode(
+        studies=partitions[partition_id],
+        data_config=data_config,
+        training_config=build_hospital_training_config(
+            partition_id,
+            base_train_config=base_train_config,
+            local_epochs=local_epochs,
+            local_val_fraction=local_val_fraction,
+        ),
+    )
+
+
+def get_global_validation_studies(
+    data_config: BraTSRawConfig = None,
+) -> tuple[tuple[StudyRecord, ...], BraTSRawConfig]:
+    """Discover + apply the global split, returning only the held-out validation studies
+    (never `split.train` or any hospital's partition). This is what the server's
+    centralized evaluation (`server/federated/evaluation.py`) uses -- the server never
+    sees a hospital's training partition."""
+    data_config = replace(data_config or BraTSRawConfig(), on_incomplete_study="exclude")
+    discovery = discover_studies(data_config)
+    split = split_studies(list(discovery.valid), val_fraction=data_config.val_fraction, seed=data_config.seed)
+    return split.val, data_config
 
 
 def run_local_training_sanity_check() -> None:

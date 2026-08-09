@@ -7,10 +7,11 @@ validated and makes no claim of medical efficacy.**
 
 Before implementing federated learning, FedMed needs a **centralized
 baseline**: one 3D U-Net, trained normally on all available (pooled) data,
-evaluated the same way federated results will later be evaluated. Once
-Module 6 implements FedAvg across the 3 simulated hospital nodes, its
-results are only meaningful compared against this baseline — otherwise
-there's nothing to say federated learning "worked" relative to.
+evaluated the same way federated results will later be evaluated. Module 7 implements
+FedAvg across the 3 simulated hospital nodes (Module 6); its results are only meaningful
+compared against this baseline — otherwise there's nothing to say federated learning
+"worked" relative to. See [`docs/federated_training.md`](federated_training.md) for that
+comparison.
 
 ```
 BraTS -> Module 3 preprocessing -> DataLoader -> Module 4 3D U-Net ->

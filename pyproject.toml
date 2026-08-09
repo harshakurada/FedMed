@@ -27,6 +27,8 @@ clientapp = "hospital_nodes.client_app:app"
 
 [tool.flwr.app.config]
 num-server-rounds = 3
+local-epochs = 1
+local-val-fraction = 0.0
 
 
 #######################################################################
