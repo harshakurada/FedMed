@@ -48,8 +48,8 @@ function describe(event) {
   }
 }
 
-export default function EventLog({ events }) {
-  const ordered = [...events].reverse(); // newest first
+export default React.memo(function EventLog({ events }) {
+  const ordered = React.useMemo(() => [...events].reverse(), [events]); // newest first
 
   return (
     <section className="fm-panel" aria-label="System events">
@@ -72,4 +72,4 @@ export default function EventLog({ events }) {
       )}
     </section>
   );
-}
+});
