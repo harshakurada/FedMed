@@ -46,9 +46,10 @@ export default React.memo(function MetricsCharts({ state }) {
   const roundHistory = state.roundHistory || [];
 
   const privacyHistory = React.useMemo(() => {
-    return metricsHistory
-      .map((m) => ({ round: m.round, epsilon: state.dpEnabled ? state.epsilon : null }))
-      .filter((m) => m.epsilon != null);
+    if (!state.dpEnabled || state.epsilon == null) {
+      return [];
+    }
+    return metricsHistory.map((m) => ({ round: m.round, epsilon: state.epsilon }));
   }, [metricsHistory, state.dpEnabled, state.epsilon]);
 
   return (
