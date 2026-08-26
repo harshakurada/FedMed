@@ -60,10 +60,11 @@ export default React.memo(function EventLog({ events }) {
         <ul className="fm-event-log">
           {ordered.map((event, index) => {
             const severity = severityOf(event.event_type);
+            const severityLower = severity.toLowerCase();
             return (
-              <li key={`${event.timestamp}-${index}`} className={`fm-event fm-severity-${severity.toLowerCase()}`}>
+              <li key={`${event.timestamp}-${index}`} className={`fm-event fm-severity-${severityLower}`}>
                 <span className="fm-event-time">{new Date(event.timestamp).toLocaleTimeString()}</span>
-                <span className={`fm-event-severity fm-severity-badge-${severity.toLowerCase()}`}>{severity}</span>
+                <span className={`fm-event-severity fm-severity-badge-${severityLower}`}>{severity}</span>
                 <span className="fm-event-text">{describe(event)}</span>
               </li>
             );
