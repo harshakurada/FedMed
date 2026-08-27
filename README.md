@@ -40,7 +40,7 @@ Researchers at three different global hospitals collaborate to train a brain tum
 **Not yet implemented (planned for future modules):**
 - A full centralized baseline training run (only 9 usable local studies right now — enough to verify the pipeline, not to produce a meaningful baseline; the fuller ~369-study BraTS2020 release is needed for that) — the federated experiment has the same current data-scale limit.
 - `cv_model/dataset.py` — an *alternate*, untested path wrapping MONAI's auto-downloading `DecathlonDataset` (MSD Task01_BrainTumour release). Kept from Module 1; not the pipeline used by `cv_model/brats/`.
-- Dashboard authentication (documented as a local development monitoring interface only — see `docs/dashboard.md`).
+- Dashboard authentication (documented as a local development monitoring interface only — see `docs/dashboard.md`)..
 
 ## Repository Layout
 
