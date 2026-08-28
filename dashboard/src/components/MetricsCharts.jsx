@@ -63,8 +63,8 @@ export default React.memo(function MetricsCharts({ state }) {
     if (!state.dpEnabled || state.epsilon == null) {
       return [];
     }
-    return metricsHistory.map((m) => ({ round: m.round, epsilon: state.epsilon }));
-  }, [metricsHistory, state.dpEnabled, state.epsilon]);
+    return (state.metricsHistory || []).map((m) => ({ round: m.round, epsilon: state.epsilon }));
+  }, [state.metricsHistory, state.dpEnabled, state.epsilon]);
 
   return (
     <section className="fm-panel" aria-label="Model performance charts">
