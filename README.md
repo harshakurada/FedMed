@@ -10,7 +10,7 @@ Training highly accurate ML models for rare diseases requires massive patient da
 
 Researchers at three different global hospitals collaborate to train a brain tumor segmentation model using MRI scans. Instead of pooling their private data, they deploy FedMed nodes:
 
-1. The central server sends the untrained PyTorch model to each hospital..
+1. The central server sends the untrained PyTorch model to each hospital.
 2. The models train locally on private data.
 3. Only the encrypted weight updates are sent back and aggregated (using Secure MultiParty Computation) to update the global model — preserving absolute patient privacy.
 
