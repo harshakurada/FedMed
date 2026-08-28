@@ -111,7 +111,19 @@ function snapshotToState(data) {
 
 function applyEvent(prev, event) {
   const { event_type: type, source, round, payload = {} } = event;
-  let next = { ...prev, hospitals: { ...prev.hospitals } };
+  let next = { ...prev };
+  
+  const modifiesHospitals = [
+    EventType.CLIENT_CONNECTED,
+    EventType.CLIENT_DISCONNECTED,
+    EventType.CLIENT_TRAINING,
+    EventType.CLIENT_TRAINING_COMPLETED,
+    EventType.CLIENT_FAILED,
+  ].includes(type);
+
+  if (modifiesHospitals) {
+    next.hospitals = { ...prev.hospitals };
+  }
 
   if (round != null) next.currentRound = round;
 
