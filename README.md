@@ -246,7 +246,7 @@ Device throughout: CPU only (no CUDA available in this environment).
   on this Windows/Python 3.14 setup during run submission (see
   `docs/secure_communication.md`).
 - DP's cumulative-epsilon accounting uses basic (conservative) composition, not a tight
-  RDP/moments accountant.
+  RDP/moments accountant..
 
 ## Section 12 — Running the Project
 
