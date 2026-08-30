@@ -51,7 +51,7 @@ any individual one in the clear.
 - gRPC transport
 - Real-time monitoring: React dashboard, WebSockets, Recharts
 - A clearly-labeled DEMO MODE that runs the full real pipeline on synthetic data in
-  seconds, alongside a LIVE MODE that runs the same pipeline on real local BraTS2020 data
+  seconds, alongside a LIVE MODE that runs the same pipeline on real local BraTS2020 data .
 
 ## Section 3 — Architecture
 
