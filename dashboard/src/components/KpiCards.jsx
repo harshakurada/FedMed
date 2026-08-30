@@ -14,10 +14,13 @@ function Card({ label, value, hint }) {
   );
 }
 
-export default function KpiCards({ state }) {
-  const connectedHospitals = Object.values(state.hospitals).filter(
-    (h) => h.connectionStatus === "Online" || h.connectionStatus === "Training" || h.connectionStatus === "Completed"
-  ).length;
+export default React.memo(function KpiCards({ state }) {
+  const connectedHospitals = React.useMemo(
+    () => Object.values(state.hospitals).filter(
+      (h) => h.connectionStatus === "Online" || h.connectionStatus === "Training" || h.connectionStatus === "Completed"
+    ).length,
+    [state.hospitals]
+  );
 
   return (
     <section className="fm-kpi-grid" aria-label="System overview">
@@ -35,4 +38,4 @@ export default function KpiCards({ state }) {
       <Card label="System Status" value={state.systemStatus || "N/A"} />
     </section>
   );
-}
+});
