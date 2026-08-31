@@ -2,8 +2,14 @@ import React from "react";
 
 export default function RoundStatus({ state }) {
   const hospitals = Object.values(state.hospitals);
-  const completed = hospitals.filter((h) => h.connectionStatus === "Completed").length;
-  const failed = hospitals.filter((h) => h.connectionStatus === "Error").length;
+  const { completed, failed } = hospitals.reduce(
+    (acc, h) => {
+      if (h.connectionStatus === "Completed") acc.completed++;
+      else if (h.connectionStatus === "Error") acc.failed++;
+      return acc;
+    },
+    { completed: 0, failed: 0 }
+  );
   const total = hospitals.length;
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
