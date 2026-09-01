@@ -268,7 +268,8 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
       scheduleReconnect();
     };
 
-    socket.onerror = () => {
+    socket.onerror = (err) => {
+      console.warn("FedMed dashboard: WebSocket error — closing socket.", err);
       socket.close();
     };
   }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
