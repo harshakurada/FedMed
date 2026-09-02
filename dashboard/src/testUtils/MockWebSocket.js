@@ -40,6 +40,10 @@ export class MockWebSocket {
     if (this.onclose) this.onclose({});
   }
 
+  mockError(event = {}) {
+    if (this.onerror) this.onerror(event);
+  }
+
   static reset() {
     MockWebSocket.instances = [];
   }
