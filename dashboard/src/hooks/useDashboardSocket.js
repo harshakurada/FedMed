@@ -260,6 +260,8 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
         setState(snapshotToState(message.data || {}));
       } else if (message.type === "event") {
         setState((prev) => applyEvent(prev, message.data));
+      } else {
+        console.warn(`FedMed dashboard: unrecognised message type "${message.type}", ignoring.`);
       }
     };
 
