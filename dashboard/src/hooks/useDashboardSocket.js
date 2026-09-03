@@ -279,6 +279,7 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
   function scheduleReconnect() {
     if (stoppedRef.current) return;
     setConnectionStatus("Reconnecting");
+    console.log(`FedMed dashboard: reconnecting in ${backoffRef.current}ms…`);
     reconnectTimerRef.current = setTimeout(() => {
       backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
       connect();
