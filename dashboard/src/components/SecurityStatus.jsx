@@ -11,8 +11,11 @@ function StatusChip({ label, active }) {
   );
 }
 
-export default function SecurityStatus({ state }) {
-  const tlsActive = state.tlsStatus == null ? null : state.tlsStatus.toLowerCase().includes("active");
+export default React.memo(function SecurityStatus({ state }) {
+  const tlsActive = React.useMemo(
+    () => state.tlsStatus == null ? null : state.tlsStatus.toLowerCase().includes("active"),
+    [state.tlsStatus]
+  );
   return (
     <section className="fm-panel" aria-label="Security summary">
       <h2>Security Summary</h2>
@@ -27,4 +30,4 @@ export default function SecurityStatus({ state }) {
       </p>
     </section>
   );
-}
+});
