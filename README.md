@@ -24,7 +24,7 @@ npm start
 
 Open `http://localhost:3000`. You'll see a **DEMO MODE** badge, 3 hospitals connecting
 over real mutual TLS, a real federated round with DP and CKKS applied, and real (if
-small-scale) Dice/IoU/loss numbers. Full walkthrough: Section 13..
+small-scale) Dice/IoU/loss numbers. Full walkthrough: Section 13.
 
 ## Section 1 — Project Overview
 
