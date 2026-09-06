@@ -62,10 +62,11 @@ class DashboardWebSocketServer:
         if not self._connections:
             return
         message = event.to_json()
+        connections = list(self._connections)
         results = await asyncio.gather(
-            *(connection.send(message) for connection in list(self._connections)), return_exceptions=True
+            *(connection.send(message) for connection in connections), return_exceptions=True
         )
-        for connection, result in zip(list(self._connections), results):
+        for connection, result in zip(connections, results):
             if isinstance(result, Exception):
                 self._connections.discard(connection)
 
