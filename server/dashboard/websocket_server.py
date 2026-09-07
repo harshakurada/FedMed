@@ -54,8 +54,10 @@ class DashboardWebSocketServer:
 
     async def stop(self) -> None:
         if self._server is not None:
+            logger.info("dashboard WebSocket server shutting down…")
             self._server.close()
             await self._server.wait_closed()
+            logger.info("dashboard WebSocket server stopped")
 
     async def _broadcast_async(self, event: DashboardEvent) -> None:
         self.state.apply(event)
