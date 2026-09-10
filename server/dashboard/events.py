@@ -40,6 +40,15 @@ ALL_EVENT_TYPES = frozenset(
     value for name, value in vars(EventType).items() if not name.startswith("_")
 )
 
+# Guard against accidental duplicate string values on EventType collapsing silently
+# into the frozenset (e.g. two constants sharing the same string would reduce the set
+# size without any error).
+_all_event_values = [value for name, value in vars(EventType).items() if not name.startswith("_")]
+assert len(_all_event_values) == len(ALL_EVENT_TYPES), (
+    f"EventType has duplicate string values: {sorted(v for v in _all_event_values if _all_event_values.count(v) > 1)}"
+)
+del _all_event_values
+
 # Every field any event's payload is allowed to carry. Round/hospital identifiers,
 # already-computed utility metrics, already-computed privacy/security *status* -- never
 # a value that could reconstruct raw data, a secret, or a model tensor.
