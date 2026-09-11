@@ -4,7 +4,7 @@
 
 This is a simulated research/portfolio project (Modules 1–13, complete). **It is not
 clinically validated, makes no claim of medical efficacy, and is not HIPAA/GDPR
-compliant.** See Section 11 (Limitations) and the disclaimer in `docs/security.md`.
+compliant.** See Section 11 (Limitations) and the disclaimer in `docs/security.md`
 
 ## Quick Start
 
