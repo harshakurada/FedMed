@@ -60,11 +60,12 @@ export default React.memo(function MetricsCharts({ state }) {
   const roundHistory = state.roundHistory || [];
 
   const privacyHistory = React.useMemo(() => {
-    if (!state.dpEnabled || state.epsilon == null) {
-      return [];
-    }
-    return (state.metricsHistory || []).map((m) => ({ round: m.round, epsilon: state.epsilon }));
-  }, [state.metricsHistory, state.dpEnabled, state.epsilon]);
+    // Only show the chart if DP is active and at least one round has a reported
+    // cumulative epsilon value -- avoids a misleading flat line from state.epsilon
+    // (the static target) which never changes across rounds.
+    if (!state.dpEnabled) return [];
+    return (state.metricsHistory || []).filter((m) => m.cumulativeEpsilon != null);
+  }, [state.metricsHistory, state.dpEnabled]);
 
   return (
     <section className="fm-panel" aria-label="Model performance charts">
@@ -73,7 +74,7 @@ export default React.memo(function MetricsCharts({ state }) {
         <LineChartPanel title="Global Dice vs. Round" data={metricsHistory} dataKey="globalDice" color="#60a5fa" unit="Dice" />
         <LineChartPanel title="Global IoU vs. Round" data={metricsHistory} dataKey="globalIou" color="#22d3ee" unit="IoU" />
         <LineChartPanel title="Global Loss vs. Round" data={metricsHistory} dataKey="globalLoss" color="#f87171" unit="Loss" />
-        <LineChartPanel title="Privacy Budget (ε) vs. Round" data={privacyHistory} dataKey="epsilon" color="#c084fc" unit="Epsilon" />
+        <LineChartPanel title="Privacy Budget (ε) vs. Round" data={privacyHistory} dataKey="cumulativeEpsilon" color="#c084fc" unit="Cumul. ε" />
 
         <div className="fm-chart-card">
           <h3>Round Duration vs. Round</h3>

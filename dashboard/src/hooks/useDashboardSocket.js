@@ -42,14 +42,21 @@ const EMPTY_STATE = {
 function historyFromEvents(events) {
   const metricsHistory = [];
   const roundHistory = [];
+  // Track the last known cumulative epsilon as we replay events in order,
+  // so each METRICS_UPDATED entry can be annotated with the budget consumed
+  // at that point in time (PRIVACY_UPDATED may arrive before or after).
+  let lastCumulativeEpsilon = null;
   for (const event of events) {
     const { event_type: type, round, payload = {} } = event;
-    if (type === EventType.METRICS_UPDATED) {
+    if (type === EventType.PRIVACY_UPDATED) {
+      lastCumulativeEpsilon = payload.cumulative_epsilon ?? lastCumulativeEpsilon;
+    } else if (type === EventType.METRICS_UPDATED) {
       metricsHistory.push({
         round,
         globalDice: payload.global_dice ?? null,
         globalIou: payload.global_iou ?? null,
         globalLoss: payload.global_loss ?? null,
+        cumulativeEpsilon: lastCumulativeEpsilon,
       });
     } else if (type === EventType.ROUND_COMPLETED) {
       roundHistory.push({
@@ -184,7 +191,15 @@ function applyEvent(prev, event) {
       next.globalIou = payload.global_iou ?? next.globalIou;
       next.metricsHistory = [
         ...next.metricsHistory,
-        { round, globalDice: payload.global_dice ?? null, globalIou: payload.global_iou ?? null, globalLoss: payload.global_loss ?? null },
+        {
+          round,
+          globalDice: payload.global_dice ?? null,
+          globalIou: payload.global_iou ?? null,
+          globalLoss: payload.global_loss ?? null,
+          // Attach the most recently reported cumulative budget so the privacy
+          // chart can plot actual consumed epsilon per round, not a flat line.
+          cumulativeEpsilon: next.cumulativeEpsilon,
+        },
       ].slice(-MAX_CHART_HISTORY);
       break;
     case EventType.PRIVACY_UPDATED:
