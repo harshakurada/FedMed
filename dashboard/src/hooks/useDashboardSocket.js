@@ -240,10 +240,26 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
   const backoffRef = useRef(INITIAL_BACKOFF_MS);
   const reconnectTimerRef = useRef(null);
   const stoppedRef = useRef(false);
+  // Holds a ref to the latest `connect` so that `scheduleReconnect` (defined
+  // inside the useCallback below) can call back into it without creating a
+  // circular dependency or capturing a stale closure.
+  const connectRef = useRef(null);
 
   const connect = useCallback(() => {
     if (stoppedRef.current) return;
     setConnectionStatus((prev) => (prev === "Connected" ? prev : "Connecting"));
+
+    // Defined inside useCallback so it closes over the refs directly and
+    // calls back via connectRef to avoid a stale-closure circular dependency.
+    const scheduleReconnect = () => {
+      if (stoppedRef.current) return;
+      setConnectionStatus("Reconnecting");
+      console.log(`FedMed dashboard: reconnecting in ${backoffRef.current}ms…`);
+      reconnectTimerRef.current = setTimeout(() => {
+        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
+        connectRef.current();
+      }, backoffRef.current);
+    };
 
     let socket;
     try {
@@ -289,17 +305,13 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
       console.warn("FedMed dashboard: WebSocket error — closing socket.", err);
       socket.close();
     };
-  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [url]);
 
-  function scheduleReconnect() {
-    if (stoppedRef.current) return;
-    setConnectionStatus("Reconnecting");
-    console.log(`FedMed dashboard: reconnecting in ${backoffRef.current}ms…`);
-    reconnectTimerRef.current = setTimeout(() => {
-      backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
-      connect();
-    }, backoffRef.current);
-  }
+  // Keep connectRef pointing at the latest memoized connect so that
+  // scheduleReconnect always triggers the current version, not a stale one.
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     stoppedRef.current = false;
