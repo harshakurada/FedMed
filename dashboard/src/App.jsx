@@ -21,7 +21,7 @@ export default function App() {
     <div className="fm-app">
       <Header connectionStatus={connectionStatus} mode={state.mode} />
 
-      {connectionStatus !== "Connected" && state.recentEvents.length === 0 ? (
+      {connectionStatus !== "Connected" ? (
         <p className="fm-empty fm-top-notice" role="status">
           {connectionStatus === "Connecting" && "Connecting to the FedMed backend…"}
           {connectionStatus === "Reconnecting" && "Disconnected — attempting to reconnect…"}
