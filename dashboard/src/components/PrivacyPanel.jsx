@@ -13,7 +13,7 @@ export default function PrivacyPanel({ state }) {
   return (
     <section className="fm-panel" aria-label="Privacy status">
       <h2>Privacy</h2>
-      <dl className="fm-info-list">
+      <div className="fm-info-list" role="list">
         <Row label="Differential Privacy" value={state.dpEnabled == null ? null : state.dpEnabled ? "Enabled" : "Disabled"} />
         <Row label="Privacy Unit" value={state.privacyUnit} />
         <Row label="Epsilon (ε)" value={state.epsilon != null ? Number(state.epsilon).toFixed(4) : null} />
@@ -22,7 +22,7 @@ export default function PrivacyPanel({ state }) {
         <Row label="Clipping Norm" value={state.clipNorm} />
         <Row label="Budget Status" value={state.budgetStatus} />
         <Row label="Cumulative Epsilon" value={state.cumulativeEpsilon != null ? Number(state.cumulativeEpsilon).toFixed(4) : null} />
-      </dl>
+      </div>
     </section>
   );
 }
