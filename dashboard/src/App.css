@@ -830,6 +830,17 @@ main > *:nth-child(6) {
   }
 }
 
+/* Tablet: collapse wider grids from auto-fit to a fixed 2-column layout so
+   panels don't get too narrow or overflow on mid-size viewports. */
+@media (max-width: 900px) {
+  .fm-security-row,
+  .fm-chart-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: single column for everything — the minmax() floor values on the
+   grids (170–320px) are too wide for a typical phone screen. */
 @media (max-width: 640px) {
   .fm-app {
     padding: 1rem;
@@ -838,5 +849,11 @@ main > *:nth-child(6) {
     flex-direction: column;
     align-items: flex-start;
     padding: 1.25rem;
+  }
+  .fm-kpi-grid,
+  .fm-hospital-grid,
+  .fm-security-row,
+  .fm-chart-grid {
+    grid-template-columns: 1fr;
   }
 }
