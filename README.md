@@ -30,7 +30,7 @@ small-scale) Dice/IoU/loss numbers. Full walkthrough: Section 13.
 
 **The problem:** hospitals have valuable medical imaging data but cannot simply
 centralize sensitive patient data — regulatory constraints (HIPAA/GDPR) and basic patient
-trust mean raw MRI scans and labels should never leave the hospital that holds them.
+trust mean raw MRI scans and labels should never leave the hospital that holds them..
 
 **The solution:** FedMed allows simulated hospitals to collaboratively train a brain
 tumor segmentation model while keeping raw medical data local. Each hospital trains on
