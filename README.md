@@ -207,6 +207,11 @@ Module 13, this exact composition is also what the demo script
 (`server/federated/integrated_round.py`) runs. 237/237 tests pass across the whole
 project. Full report: [`docs/final_validation_report.md`](docs/final_validation_report.md).
 
+**Status as of 2026-08-29:** re-ran the full suite (`pytest -q`) against the current
+`main` — 221 passed, 16 skipped (TLS tests skip cleanly when `openssl` isn't on the
+shell's `PATH`; see Section 12), 0 failed. Consistent with the 237-test count above; no
+regression.
+
 ## Section 10 — Performance
 
 Real, measured numbers only (source noted per row):
