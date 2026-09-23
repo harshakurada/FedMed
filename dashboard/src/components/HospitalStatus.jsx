@@ -21,7 +21,10 @@ function formatNumber(value, digits = 3) {
 }
 
 export default function HospitalStatus({ hospitals }) {
-  const entries = Object.values(hospitals);
+  // Use Object.entries so the map key is the hospital ID string from the
+  // state object key -- always defined, unlike h.hospitalId which would be
+  // undefined if the backend ever sends hospital_id: null.
+  const entries = Object.entries(hospitals);
 
   return (
     <section className="fm-panel" aria-label="Hospital status">
@@ -30,12 +33,12 @@ export default function HospitalStatus({ hospitals }) {
         <p className="fm-empty">No data yet</p>
       ) : (
         <div className="fm-hospital-grid">
-          {entries.map((h) => {
+          {entries.map(([id, h]) => {
             const statusClass = STATUS_CLASS[h.connectionStatus] || "fm-status-muted";
             return (
-              <article key={h.hospitalId} className="fm-hospital-card" aria-label={`${h.hospitalId} status`}>
+              <article key={id} className="fm-hospital-card" aria-label={`${id} status`}>
                 <header>
-                  <strong>{h.hospitalId}</strong>
+                  <strong>{id}</strong>
                   <span className={`fm-status-pill ${statusClass}`}>
                     <span aria-hidden="true">{STATUS_ICON[h.connectionStatus] || "?"}</span>{" "}
                     {h.connectionStatus || "N/A"}
@@ -47,12 +50,20 @@ export default function HospitalStatus({ hospitals }) {
                     <dd>{h.currentRound ?? "N/A"}</dd>
                   </div>
                   <div>
+                    <dt>Samples</dt>
+                    <dd>{h.numExamples ?? "N/A"}</dd>
+                  </div>
+                  <div>
                     <dt>Local Dice</dt>
                     <dd>{formatNumber(h.trainDice)}</dd>
                   </div>
                   <div>
-                    <dt>Sample count</dt>
-                    <dd>{h.numExamples ?? "N/A"}</dd>
+                    <dt>Local IoU</dt>
+                    <dd>{formatNumber(h.trainIou)}</dd>
+                  </div>
+                  <div>
+                    <dt>Local Loss</dt>
+                    <dd>{formatNumber(h.trainLoss)}</dd>
                   </div>
                   <div>
                     <dt>Last update</dt>
