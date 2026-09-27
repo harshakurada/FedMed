@@ -20,11 +20,11 @@ function formatNumber(value, digits = 3) {
   return value === null || value === undefined ? "N/A" : Number(value).toFixed(digits);
 }
 
-export default function HospitalStatus({ hospitals }) {
+export default function HospitalStatus({ hospitals = {} }) {
   // Use Object.entries so the map key is the hospital ID string from the
   // state object key -- always defined, unlike h.hospitalId which would be
   // undefined if the backend ever sends hospital_id: null.
-  const entries = Object.entries(hospitals);
+  const entries = Object.entries(hospitals ?? {});
 
   return (
     <section className="fm-panel" aria-label="Hospital status">
