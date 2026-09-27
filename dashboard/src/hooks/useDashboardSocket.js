@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { EventType } from "../eventSchema";
+import { EventType, payloadContainsForbiddenField } from "../eventSchema";
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:8765";
 const MAX_RECENT_EVENTS = 100;
@@ -290,6 +290,13 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
       if (message.type === "snapshot") {
         setState(snapshotToState(message.data || {}));
       } else if (message.type === "event") {
+        if (payloadContainsForbiddenField(message.data?.payload)) {
+          console.warn(
+            "FedMed dashboard: event payload contains a forbidden field — discarding message.",
+            message.data?.event_type
+          );
+          return;
+        }
         setState((prev) => applyEvent(prev, message.data));
       } else {
         console.warn(`FedMed dashboard: unrecognised message type "${message.type}", ignoring.`);
