@@ -291,6 +291,7 @@ def run_federated_experiment(
                 "round_duration_seconds": record.duration_seconds,
                 "clients_completed": len(client_records),
                 "clients_failed": len(failed_hospital_ids),
+                "clients_stale": len(stale_hospital_ids),
                 "round_status": "Completed",
             },
         )

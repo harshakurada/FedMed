@@ -61,6 +61,7 @@ ALLOWED_PAYLOAD_KEYS = frozenset(
         "clients_participating",
         "clients_completed",
         "clients_failed",
+        "clients_stale",
         "round_duration_seconds",
         "round_status",
         "system_status",

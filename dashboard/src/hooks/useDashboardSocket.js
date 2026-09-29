@@ -64,6 +64,7 @@ function historyFromEvents(events) {
         durationSeconds: payload.round_duration_seconds ?? null,
         clientsCompleted: payload.clients_completed ?? null,
         clientsFailed: payload.clients_failed ?? null,
+        clientsStale: payload.clients_stale ?? null,
       });
     }
   }
@@ -156,6 +157,7 @@ function applyEvent(prev, event) {
           durationSeconds: payload.round_duration_seconds ?? null,
           clientsCompleted: payload.clients_completed ?? null,
           clientsFailed: payload.clients_failed ?? null,
+          clientsStale: payload.clients_stale ?? null,
         },
       ].slice(-MAX_CHART_HISTORY);
       break;
