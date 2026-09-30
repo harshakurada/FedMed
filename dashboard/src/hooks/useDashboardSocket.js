@@ -270,12 +270,19 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
     }
     socketRef.current = socket;
 
+    // React StrictMode mounts effects twice in development, so a socket closed by the
+    // first cleanup can still fire onclose after its replacement opened. Only the
+    // current socket may change connection status or schedule a reconnect.
+    const isCurrent = () => socketRef.current === socket;
+
     socket.onopen = () => {
+      if (!isCurrent()) return;
       backoffRef.current = INITIAL_BACKOFF_MS;
       setConnectionStatus("Connected");
     };
 
     socket.onmessage = (messageEvent) => {
+      if (!isCurrent()) return;
       let message;
       try {
         message = JSON.parse(messageEvent.data);
@@ -297,6 +304,7 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
     };
 
     socket.onclose = () => {
+      if (!isCurrent()) return;
       setConnectionStatus("Disconnected");
       scheduleReconnect();
     };
@@ -319,7 +327,9 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
     return () => {
       stoppedRef.current = true;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      if (socketRef.current) socketRef.current.close();
+      const socket = socketRef.current;
+      socketRef.current = null;
+      if (socket) socket.close();
     };
   }, [connect]);
 
