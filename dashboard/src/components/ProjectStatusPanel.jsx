@@ -22,6 +22,7 @@ export default function ProjectStatusPanel({ state, connectionStatus }) {
   const tlsActive = state.tlsStatus == null ? null : state.tlsStatus.toLowerCase().includes("active");
   const hospitalCount = Object.keys(state.hospitals).length;
   const wsConnected = connectionStatus === "Connected";
+  const isReplay = connectionStatus.startsWith("Replay") || connectionStatus === "Loading replay";
 
   return (
     <section className="fm-panel" aria-label="Project status">
@@ -49,8 +50,8 @@ export default function ProjectStatusPanel({ state, connectionStatus }) {
         />
         <StatusRow
           label="WebSocket"
-          value={wsConnected ? "CONNECTED" : "DISCONNECTED"}
-          tone={toneFor(wsConnected)}
+          value={isReplay ? "REPLAY" : wsConnected ? "CONNECTED" : "DISCONNECTED"}
+          tone={isReplay ? "fm-status-muted" : toneFor(wsConnected)}
         />
         <StatusRow label="Hospitals" value={hospitalCount > 0 ? String(hospitalCount) : "N/A"} tone="fm-status-muted" />
       </div>

@@ -1,0 +1,235 @@
+{
+ "system_status": "Idle",
+ "mode": "DEMO MODE",
+ "current_round": 1,
+ "num_rounds": 1,
+ "round_status": "Completed",
+ "hospitals": {
+  "hospital_a": {
+   "hospital_id": "hospital_a",
+   "connection_status": "Completed",
+   "current_round": 1,
+   "last_update": "2026-09-30T12:41:57.542424+00:00",
+   "num_examples": 3,
+   "train_loss": 0.5931363900502523,
+   "train_dice": 0.34502163529396057,
+   "train_iou": 0.2191014289855957
+  },
+  "hospital_b": {
+   "hospital_id": "hospital_b",
+   "connection_status": "Completed",
+   "current_round": 1,
+   "last_update": "2026-09-30T12:41:58.147824+00:00",
+   "num_examples": 3,
+   "train_loss": 0.7243293523788452,
+   "train_dice": 0.23755590617656708,
+   "train_iou": 0.1407018005847931
+  },
+  "hospital_c": {
+   "hospital_id": "hospital_c",
+   "connection_status": "Completed",
+   "current_round": 1,
+   "last_update": "2026-09-30T12:41:58.751560+00:00",
+   "num_examples": 3,
+   "train_loss": 0.7254851857821146,
+   "train_dice": 0.22826893627643585,
+   "train_iou": 0.13556420803070068
+  }
+ },
+ "global_loss": 0.7520881692568461,
+ "global_dice": 0.23901672661304474,
+ "global_iou": 0.1388995498418808,
+ "dp_enabled": true,
+ "privacy_unit": null,
+ "epsilon": 0.9689610525210778,
+ "delta": 1e-05,
+ "clip_norm": 0.5,
+ "noise_multiplier": 5.0,
+ "cumulative_epsilon": 0.9689610525210778,
+ "budget_status": null,
+ "ckks_enabled": true,
+ "encryption_status": "context ready",
+ "tls_status": "Active",
+ "recent_events": [
+  {
+   "event_type": "SYSTEM_READY",
+   "source": "server",
+   "round": null,
+   "payload": {
+    "mode": "DEMO MODE"
+   },
+   "timestamp": "2026-09-30T12:41:51.997391+00:00"
+  },
+  {
+   "event_type": "CLIENT_CONNECTED",
+   "source": "hospital_a",
+   "round": null,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:56.581918+00:00"
+  },
+  {
+   "event_type": "CLIENT_CONNECTED",
+   "source": "hospital_b",
+   "round": null,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:56.597255+00:00"
+  },
+  {
+   "event_type": "CLIENT_CONNECTED",
+   "source": "hospital_c",
+   "round": null,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:56.612425+00:00"
+  },
+  {
+   "event_type": "ROUND_STARTED",
+   "source": "server",
+   "round": 1,
+   "payload": {
+    "num_rounds": 1
+   },
+   "timestamp": "2026-09-30T12:41:56.612660+00:00"
+  },
+  {
+   "event_type": "ENCRYPTION_UPDATED",
+   "source": "server",
+   "round": null,
+   "payload": {
+    "ckks_enabled": true,
+    "tls_status": "Active",
+    "encryption_status": "context ready"
+   },
+   "timestamp": "2026-09-30T12:41:56.612936+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING",
+   "source": "hospital_a",
+   "round": 1,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:56.612998+00:00"
+  },
+  {
+   "event_type": "PRIVACY_UPDATED",
+   "source": "hospital_a",
+   "round": 1,
+   "payload": {
+    "dp_enabled": true,
+    "epsilon": 0.9689610525210778,
+    "cumulative_epsilon": 0.9689610525210778,
+    "delta": 1e-05,
+    "clip_norm": 0.5,
+    "noise_multiplier": 5.0
+   },
+   "timestamp": "2026-09-30T12:41:57.225277+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING_COMPLETED",
+   "source": "hospital_a",
+   "round": 1,
+   "payload": {
+    "num_examples": 3,
+    "train_loss": 0.5931363900502523,
+    "train_dice": 0.34502163529396057,
+    "train_iou": 0.2191014289855957
+   },
+   "timestamp": "2026-09-30T12:41:57.542424+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING",
+   "source": "hospital_b",
+   "round": 1,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:57.543339+00:00"
+  },
+  {
+   "event_type": "PRIVACY_UPDATED",
+   "source": "hospital_b",
+   "round": 1,
+   "payload": {
+    "dp_enabled": true,
+    "epsilon": 0.9689610525210778,
+    "cumulative_epsilon": 0.9689610525210778,
+    "delta": 1e-05,
+    "clip_norm": 0.5,
+    "noise_multiplier": 5.0
+   },
+   "timestamp": "2026-09-30T12:41:57.844790+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING_COMPLETED",
+   "source": "hospital_b",
+   "round": 1,
+   "payload": {
+    "num_examples": 3,
+    "train_loss": 0.7243293523788452,
+    "train_dice": 0.23755590617656708,
+    "train_iou": 0.1407018005847931
+   },
+   "timestamp": "2026-09-30T12:41:58.147824+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING",
+   "source": "hospital_c",
+   "round": 1,
+   "payload": {},
+   "timestamp": "2026-09-30T12:41:58.147989+00:00"
+  },
+  {
+   "event_type": "PRIVACY_UPDATED",
+   "source": "hospital_c",
+   "round": 1,
+   "payload": {
+    "dp_enabled": true,
+    "epsilon": 0.9689610525210778,
+    "cumulative_epsilon": 0.9689610525210778,
+    "delta": 1e-05,
+    "clip_norm": 0.5,
+    "noise_multiplier": 5.0
+   },
+   "timestamp": "2026-09-30T12:41:58.451955+00:00"
+  },
+  {
+   "event_type": "CLIENT_TRAINING_COMPLETED",
+   "source": "hospital_c",
+   "round": 1,
+   "payload": {
+    "num_examples": 3,
+    "train_loss": 0.7254851857821146,
+    "train_dice": 0.22826893627643585,
+    "train_iou": 0.13556420803070068
+   },
+   "timestamp": "2026-09-30T12:41:58.751560+00:00"
+  },
+  {
+   "event_type": "GLOBAL_MODEL_UPDATED",
+   "source": "server",
+   "round": 1,
+   "payload": {
+    "aggregation_mode": "encrypted (ciphertext)"
+   },
+   "timestamp": "2026-09-30T12:41:59.168704+00:00"
+  },
+  {
+   "event_type": "ROUND_COMPLETED",
+   "source": "server",
+   "round": 1,
+   "payload": {
+    "clients_completed": 3,
+    "clients_failed": 0,
+    "round_status": "Completed"
+   },
+   "timestamp": "2026-09-30T12:41:59.172321+00:00"
+  },
+  {
+   "event_type": "METRICS_UPDATED",
+   "source": "server",
+   "round": 1,
+   "payload": {
+    "global_loss": 0.7520881692568461,
+    "global_dice": 0.23901672661304474,
+    "global_iou": 0.1388995498418808
+   },
+   "timestamp": "2026-09-30T12:41:59.348049+00:00"
+  }
+ ]
+}

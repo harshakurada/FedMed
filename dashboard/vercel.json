@@ -1,0 +1,5 @@
+{
+  "framework": "create-react-app",
+  "buildCommand": "REACT_APP_REPLAY_URL=/replay/demo-run.json npm run build",
+  "outputDirectory": "build"
+}

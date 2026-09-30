@@ -5,6 +5,9 @@ const STATUS_LABEL = {
   Connecting: "Connecting…",
   Reconnecting: "Disconnected — Attempting to reconnect…",
   Disconnected: "Disconnected",
+  "Loading replay": "Loading replay�",
+  Replaying: "Replaying recorded run",
+  "Replay finished": "Replay finished",
 };
 
 // Module 13: the dashboard must never be mistaken for a real experiment when it isn't
@@ -27,7 +30,7 @@ function ModeBadge({ mode }) {
 }
 
 export default function Header({ connectionStatus, mode }) {
-  const isConnected = connectionStatus === "Connected";
+  const isConnected = ["Connected", "Replaying", "Replay finished"].includes(connectionStatus);
   return (
     <header className="fm-header">
       <div>

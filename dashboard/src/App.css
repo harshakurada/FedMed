@@ -252,6 +252,21 @@ body {
   box-shadow: var(--fm-shadow-sm);
 }
 
+.fm-replay-button {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--fm-active-bg);
+  border: 1px solid var(--fm-border-strong);
+  border-radius: var(--fm-radius-sm);
+  color: var(--fm-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fm-replay-button:hover {
+  border-color: var(--fm-active);
+}
+
 main {
   display: flex;
   flex-direction: column;

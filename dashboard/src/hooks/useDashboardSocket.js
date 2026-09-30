@@ -7,7 +7,7 @@ const MAX_CHART_HISTORY = 200;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 
-const EMPTY_STATE = {
+export const EMPTY_STATE = {
   systemStatus: "No data yet",
   mode: null, // "LIVE MODE" / "DEMO MODE" / "SIMULATION MODE" -- Module 13
   currentRound: null,
@@ -116,7 +116,7 @@ function snapshotToState(data) {
   };
 }
 
-function applyEvent(prev, event) {
+export function applyEvent(prev, event) {
   const { event_type: type, source, round, payload = {} } = event;
   let next = { ...prev };
   
