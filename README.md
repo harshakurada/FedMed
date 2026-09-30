@@ -93,7 +93,7 @@ the others:
 
 **TLS:** protects communication in transit. Without it, anyone observing the network
 could read model updates. FedMed uses real mutual TLS in its own coordination service
-(hospital identity read from the *verified certificate*, never trusted from the request
+(hospital identity read from the _verified certificate_, never trusted from the request
 body) alongside Flower's own gRPC/TLS live-deployment engine.
 
 **CKKS:** protects model updates during encrypted aggregation. The server combines the
@@ -190,12 +190,12 @@ subset (9 valid studies) — development-scale numbers proving the pipeline mech
 end to end, **not a clinical accuracy claim**. Full commands, environment, and
 comparability caveats: [`docs/experiments.md`](docs/experiments.md).
 
-| Experiment | Global Dice | Global IoU | Notes |
-|---|---|---|---|
-| Centralized baseline (dev-scale, 3 epochs, pooled data) | 0.0259 (val) | 0.0134 (val) | Production architecture, 7 train studies |
-| Plain FedAvg (1 round) | 0.0182 | 0.0093 | No DP, no encryption |
-| DP FedAvg (1 round) | 0.0186 | 0.0095 | epsilon=0.9690 (client-level) |
-| DP + CKKS FedAvg (1 round) | 0.0186 | 0.0095 | Same DP arm, homomorphically aggregated — no measurable utility loss vs. plaintext DP |
+| Experiment                                              | Global Dice  | Global IoU   | Notes                                                                                 |
+| ------------------------------------------------------- | ------------ | ------------ | ------------------------------------------------------------------------------------- |
+| Centralized baseline (dev-scale, 3 epochs, pooled data) | 0.0259 (val) | 0.0134 (val) | Production architecture, 7 train studies                                              |
+| Plain FedAvg (1 round)                                  | 0.0182       | 0.0093       | No DP, no encryption                                                                  |
+| DP FedAvg (1 round)                                     | 0.0186       | 0.0095       | epsilon=0.9690 (client-level)                                                         |
+| DP + CKKS FedAvg (1 round)                              | 0.0186       | 0.0095       | Same DP arm, homomorphically aggregated — no measurable utility loss vs. plaintext DP |
 
 Any value not actually measured is written as **NOT MEASURED**, never invented — none
 were needed for this table; all 4 rows are real.
@@ -216,17 +216,17 @@ regression.
 
 Real, measured numbers only (source noted per row):
 
-| Metric | Value | Source |
-|---|---|---|
-| Centralized training time (dev-scale, 3 epochs, CPU) | 104.6s total (~35s/epoch) | `docs/experiments.md`, Module 12 run |
-| Utility-comparison round time — plain FedAvg aggregation | 0.066s | `docs/experiments.md`, Module 12 run |
-| Utility-comparison round time — DP FedAvg aggregation | 0.035s | `docs/experiments.md`, Module 12 run |
-| Utility-comparison round time — DP+CKKS FedAvg (encrypt + homomorphic aggregate) | 35.333s | `docs/experiments.md`, Module 12 run |
-| CKKS encryption, real 3D U-Net (4,810,074 params), 1 hospital | ≈8.2s | `docs/homomorphic_encryption.md`, `test_ckks_model_compatibility.py` |
-| CKKS decryption, real 3D U-Net, 1 hospital | ≈2.6s | `docs/homomorphic_encryption.md`, `test_ckks_model_compatibility.py` |
-| CKKS homomorphic aggregation, 3 hospitals (tiny synthetic model) | ≈0.35s | `docs/homomorphic_encryption.md`, smoke test |
-| CKKS numerical error vs. plaintext FedAvg | max abs ≈6×10⁻⁸, mean abs ≈4×10⁻⁹, relative ≈8×10⁻⁷ | `docs/homomorphic_encryption.md`, `test_ckks_aggregation.py` |
-| CKKS public context size | 465 KB (with Galois/relin keys disabled — 35 MB otherwise) | `docs/homomorphic_encryption.md` |
+| Metric                                                                           | Value                                                      | Source                                                               |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| Centralized training time (dev-scale, 3 epochs, CPU)                             | 104.6s total (~35s/epoch)                                  | `docs/experiments.md`, Module 12 run                                 |
+| Utility-comparison round time — plain FedAvg aggregation                         | 0.066s                                                     | `docs/experiments.md`, Module 12 run                                 |
+| Utility-comparison round time — DP FedAvg aggregation                            | 0.035s                                                     | `docs/experiments.md`, Module 12 run                                 |
+| Utility-comparison round time — DP+CKKS FedAvg (encrypt + homomorphic aggregate) | 35.333s                                                    | `docs/experiments.md`, Module 12 run                                 |
+| CKKS encryption, real 3D U-Net (4,810,074 params), 1 hospital                    | ≈8.2s                                                      | `docs/homomorphic_encryption.md`, `test_ckks_model_compatibility.py` |
+| CKKS decryption, real 3D U-Net, 1 hospital                                       | ≈2.6s                                                      | `docs/homomorphic_encryption.md`, `test_ckks_model_compatibility.py` |
+| CKKS homomorphic aggregation, 3 hospitals (tiny synthetic model)                 | ≈0.35s                                                     | `docs/homomorphic_encryption.md`, smoke test                         |
+| CKKS numerical error vs. plaintext FedAvg                                        | max abs ≈6×10⁻⁸, mean abs ≈4×10⁻⁹, relative ≈8×10⁻⁷        | `docs/homomorphic_encryption.md`, `test_ckks_aggregation.py`         |
+| CKKS public context size                                                         | 465 KB (with Galois/relin keys disabled — 35 MB otherwise) | `docs/homomorphic_encryption.md`                                     |
 
 Device throughout: CPU only (no CUDA available in this environment).
 
@@ -265,7 +265,7 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. Full test suite (no real dataset required -- synthetic fixtures throughout)
+# 2. Full test suite (no real dataset required -- synthetic fixtures throughout.)
 .venv\Scripts\python.exe -m pytest -q
 
 # 3. Point at your own local BraTS2020 copy for anything using real data (never
@@ -340,25 +340,25 @@ encrypted/` — kept for history, not the pipeline actually used; see
 
 ## Documentation Index
 
-| Doc | Covers |
-|---|---|
-| [`docs/architecture.md`](docs/architecture.md) | System-level component map, data flow, key ownership |
-| [`docs/security.md`](docs/security.md) | Consolidated threat model, key ownership, audit findings |
-| [`docs/threat_model.md`](docs/threat_model.md) | Threat/mitigation table |
-| [`docs/websocket_events.md`](docs/websocket_events.md) | WebSocket event schema, example payloads |
-| [`docs/security_checklist.md`](docs/security_checklist.md) | Pre-publish security checklist |
-| [`docs/experiments.md`](docs/experiments.md) | Benchmark configs, environment, real results |
-| [`docs/final_validation_report.md`](docs/final_validation_report.md) | Module 12's full validation run record |
-| [`docs/interview_guide.md`](docs/interview_guide.md) | Interview Q&A grounded in the actual implementation |
-| [`docs/project_description.md`](docs/project_description.md) | Short descriptions + resume bullets |
-| [`docs/dataset.md`](docs/dataset.md) | BraTS pipeline, dataset layout, label convention |
-| [`docs/training.md`](docs/training.md) | Centralized training baseline |
-| [`docs/hospitals.md`](docs/hospitals.md) | Hospital-node partitioning and independence |
-| [`docs/federated_training.md`](docs/federated_training.md) | FedAvg round orchestration |
-| [`docs/secure_communication.md`](docs/secure_communication.md) | gRPC, TLS, mTLS, node resilience |
-| [`docs/homomorphic_encryption.md`](docs/homomorphic_encryption.md) | CKKS encryption, threat model |
-| [`docs/differential_privacy.md`](docs/differential_privacy.md) | DP mechanism, privacy accounting |
-| [`docs/dashboard.md`](docs/dashboard.md) | WebSocket event schema, React dashboard |
+| Doc                                                                  | Covers                                                   |
+| -------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`docs/architecture.md`](docs/architecture.md)                       | System-level component map, data flow, key ownership     |
+| [`docs/security.md`](docs/security.md)                               | Consolidated threat model, key ownership, audit findings |
+| [`docs/threat_model.md`](docs/threat_model.md)                       | Threat/mitigation table                                  |
+| [`docs/websocket_events.md`](docs/websocket_events.md)               | WebSocket event schema, example payloads                 |
+| [`docs/security_checklist.md`](docs/security_checklist.md)           | Pre-publish security checklist                           |
+| [`docs/experiments.md`](docs/experiments.md)                         | Benchmark configs, environment, real results             |
+| [`docs/final_validation_report.md`](docs/final_validation_report.md) | Module 12's full validation run record                   |
+| [`docs/interview_guide.md`](docs/interview_guide.md)                 | Interview Q&A grounded in the actual implementation      |
+| [`docs/project_description.md`](docs/project_description.md)         | Short descriptions + resume bullets                      |
+| [`docs/dataset.md`](docs/dataset.md)                                 | BraTS pipeline, dataset layout, label convention         |
+| [`docs/training.md`](docs/training.md)                               | Centralized training baseline                            |
+| [`docs/hospitals.md`](docs/hospitals.md)                             | Hospital-node partitioning and independence              |
+| [`docs/federated_training.md`](docs/federated_training.md)           | FedAvg round orchestration                               |
+| [`docs/secure_communication.md`](docs/secure_communication.md)       | gRPC, TLS, mTLS, node resilience                         |
+| [`docs/homomorphic_encryption.md`](docs/homomorphic_encryption.md)   | CKKS encryption, threat model                            |
+| [`docs/differential_privacy.md`](docs/differential_privacy.md)       | DP mechanism, privacy accounting                         |
+| [`docs/dashboard.md`](docs/dashboard.md)                             | WebSocket event schema, React dashboard                  |
 
 ## Security & Privacy Disclaimer
 
