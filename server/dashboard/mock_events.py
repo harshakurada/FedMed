@@ -34,7 +34,25 @@ def run_mock_event_sequence(server: DashboardWebSocketServer) -> None:
         )
         for hospital_id in hospitals:
             server.emit(DashboardEvent(event_type=EventType.CLIENT_TRAINING, source=hospital_id, round=round_num))
+            
+            # Emit privacy update to populate the Privacy Panel
+            server.emit(DashboardEvent(
+                event_type=EventType.PRIVACY_UPDATED, 
+                source=hospital_id, 
+                round=round_num,
+                payload={
+                    "dp_enabled": True,
+                    "privacy_unit": "Client",
+                    "epsilon": 0.969,
+                    "delta": 1e-5,
+                    "noise_multiplier": 5.0,
+                    "clip_norm": 0.5,
+                    "budget_status": "OK",
+                    "cumulative_epsilon": 0.969 * round_num
+                }
+            ))
             time.sleep(0.1)
+            
             server.emit(
                 DashboardEvent(
                     event_type=EventType.CLIENT_TRAINING_COMPLETED,
@@ -43,6 +61,20 @@ def run_mock_event_sequence(server: DashboardWebSocketServer) -> None:
                     payload={"num_examples": 3, "train_loss": 0.5, "train_dice": 0.3, "train_iou": 0.2},
                 )
             )
+            
+        # Emit encryption update to populate the Encryption Panel
+        server.emit(DashboardEvent(
+            event_type=EventType.ENCRYPTION_UPDATED,
+            source="server",
+            round=round_num,
+            payload={
+                "ckks_enabled": True,
+                "encryption_status": "Active",
+                "aggregation_mode": "Homomorphic",
+                "tls_status": "Verified",
+                "secure_communication_status": "Enabled"
+            }
+        ))
         server.emit(
             DashboardEvent(
                 event_type=EventType.METRICS_UPDATED,
