@@ -40,6 +40,15 @@ ALL_EVENT_TYPES = frozenset(
     value for name, value in vars(EventType).items() if not name.startswith("_")
 )
 
+# BUG-12 fix: assert the count so the "14 events" docstring never silently goes stale.
+_EXPECTED_EVENT_TYPE_COUNT = 14
+assert len(ALL_EVENT_TYPES) == _EXPECTED_EVENT_TYPE_COUNT, (
+    f"EventType has {len(ALL_EVENT_TYPES)} members but the expected count is "
+    f"{_EXPECTED_EVENT_TYPE_COUNT}. Update _EXPECTED_EVENT_TYPE_COUNT and the "
+    "EventType docstring after adding or removing event types."
+)
+del _EXPECTED_EVENT_TYPE_COUNT
+
 # Guard against accidental duplicate string values on EventType collapsing silently
 # into the frozenset (e.g. two constants sharing the same string would reduce the set
 # size without any error).

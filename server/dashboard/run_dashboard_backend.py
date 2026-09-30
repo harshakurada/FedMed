@@ -77,7 +77,13 @@ async def main_async(use_mock: bool) -> None:
         await asyncio.to_thread(_run_real_demo_round, server)
 
     logger.info("demo round finished -- server keeps running so late-connecting dashboards still see the snapshot")
-    await asyncio.Event().wait()  # keep serving the final snapshot until interrupted
+    # BUG-13 fix: wrap in try/finally so server.stop() is always called on
+    # KeyboardInterrupt, releasing the OS port cleanly instead of leaving it
+    # in TIME_WAIT until the process fully exits.
+    try:
+        await asyncio.Event().wait()  # keep serving the final snapshot until interrupted
+    finally:
+        await server.stop()
 
 
 def main() -> None:

@@ -69,7 +69,10 @@ class DashboardWebSocketServer:
             *(connection.send(message) for connection in connections), return_exceptions=True
         )
         for connection, result in zip(connections, results):
-            if isinstance(result, Exception):
+            # BUG-10 fix: only discard on real WebSocket errors, not transient ones
+            # (e.g. asyncio.TimeoutError) -- a broad `isinstance(result, Exception)`
+            # would permanently drop healthy connections on any blip.
+            if isinstance(result, websockets.WebSocketException):
                 self._connections.discard(connection)
 
     def emit(self, event: DashboardEvent) -> None:
@@ -77,6 +80,10 @@ class DashboardWebSocketServer:
         thread via `asyncio.to_thread` while this server's loop runs on the main
         thread -- see `run_dashboard_backend.py`)."""
         if self._loop is None:
-            self.state.apply(event)  # not started yet -- still reflected in a later snapshot
+            # BUG-02 fix: apply directly only when server hasn't started yet so the
+            # event is reflected in the first snapshot. Once the loop is running,
+            # _broadcast_async is the single place that calls state.apply -- no
+            # double-apply is possible.
+            self.state.apply(event)
             return
         asyncio.run_coroutine_threadsafe(self._broadcast_async(event), self._loop)

@@ -114,7 +114,13 @@ def run_integrated_round(
             try:
                 response = submit_encrypted_update(channel, update, timeout=grpc_config.timeout_seconds)
             finally:
-                channel.close()
+                # BUG-09 fix: close errors must not be mistaken for submission
+                # failures -- isolate them so the outer ConnectionError handler
+                # only triggers on actual submission/rejection errors.
+                try:
+                    channel.close()
+                except Exception:  # noqa: BLE001
+                    pass
             if not response.accepted:
                 raise ConnectionError(f"server rejected {hospital.hospital_id}'s update: {response.message}")
         except ConnectionError:

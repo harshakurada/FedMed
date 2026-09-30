@@ -24,7 +24,8 @@ export default function HospitalStatus({ hospitals = {} }) {
   // Use Object.entries so the map key is the hospital ID string from the
   // state object key -- always defined, unlike h.hospitalId which would be
   // undefined if the backend ever sends hospital_id: null.
-  const entries = Object.entries(hospitals ?? {});
+  // BUG-11 fix: `hospitals` always has the `= {}` default, so `?? {}` was dead code.
+  const entries = Object.entries(hospitals);
 
   return (
     <section className="fm-panel" aria-label="Hospital status">

@@ -168,7 +168,7 @@ def run_federated_experiment(
             payload={"num_rounds": federated_config.num_rounds},
         )
 
-        fit_pairs = strategy.configure_fit(round_num, parameters, client_manager)
+        fit_pairs = list(strategy.configure_fit(round_num, parameters, client_manager))  # BUG-08 fix: materialise once; a generator would be silently exhausted on the first loop
         for proxy, _fit_ins in fit_pairs:
             _emit(event_sink, event_type=EventType.CLIENT_TRAINING, source=proxy.cid, round=round_num)
 
@@ -217,13 +217,15 @@ def run_federated_experiment(
                 continue
             fit_results.append((proxy, fit_res))
 
+        # BUG-01 fix: use .get() with safe defaults so a hospital that omits a metric
+        # key never raises KeyError and crashes the whole round.
         client_records = [
             ClientRoundRecord(
                 hospital_id=str(fit_res.metrics.get("hospital_id", proxy.cid)),
                 num_examples=fit_res.num_examples,
-                train_loss=float(fit_res.metrics["train_loss"]),
-                train_dice=float(fit_res.metrics["train_dice"]),
-                train_iou=float(fit_res.metrics["train_iou"]),
+                train_loss=float(fit_res.metrics.get("train_loss", 0.0)),
+                train_dice=float(fit_res.metrics.get("train_dice", 0.0)),
+                train_iou=float(fit_res.metrics.get("train_iou", 0.0)),
                 val_dice=float(fit_res.metrics["val_dice"]) if "val_dice" in fit_res.metrics else None,
                 val_iou=float(fit_res.metrics["val_iou"]) if "val_iou" in fit_res.metrics else None,
             )
@@ -277,13 +279,15 @@ def run_federated_experiment(
             stale_hospital_ids=stale_hospital_ids,
         )
         history.append(record)
-        _emit(
-            event_sink, event_type=EventType.GLOBAL_MODEL_UPDATED, source="server", round=round_num,
-            payload={"aggregation_mode": "plaintext"},
-        )
+        # BUG-05 fix: emit METRICS_UPDATED before GLOBAL_MODEL_UPDATED so the dashboard
+        # KPI cards are already up-to-date when the "model updated" banner appears.
         _emit(
             event_sink, event_type=EventType.METRICS_UPDATED, source="server", round=round_num,
             payload={"global_loss": global_loss, "global_dice": global_dice, "global_iou": global_iou},
+        )
+        _emit(
+            event_sink, event_type=EventType.GLOBAL_MODEL_UPDATED, source="server", round=round_num,
+            payload={"aggregation_mode": "plaintext"},
         )
         _emit(
             event_sink, event_type=EventType.ROUND_COMPLETED, source="server", round=round_num,

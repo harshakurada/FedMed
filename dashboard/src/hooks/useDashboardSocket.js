@@ -198,8 +198,9 @@ function applyEvent(prev, event) {
           globalDice: payload.global_dice ?? null,
           globalIou: payload.global_iou ?? null,
           globalLoss: payload.global_loss ?? null,
-          // Attach the most recently reported cumulative budget so the privacy
-          // chart can plot actual consumed epsilon per round, not a flat line.
+          // BUG-07 fix: read cumulativeEpsilon from next (already updated if
+          // PRIVACY_UPDATED arrived for this round before METRICS_UPDATED) so
+          // the privacy chart always shows the correct per-round budget spend.
           cumulativeEpsilon: next.cumulativeEpsilon,
         },
       ].slice(-MAX_CHART_HISTORY);
@@ -256,11 +257,15 @@ export function useDashboardSocket(url = DEFAULT_WS_URL) {
     const scheduleReconnect = () => {
       if (stoppedRef.current) return;
       setConnectionStatus("Reconnecting");
-      console.log(`FedMed dashboard: reconnecting in ${backoffRef.current}ms…`);
+      // BUG-03 fix: record the current delay THEN double it, so each failed
+      // attempt uses the already-correct wait and the next one is longer --
+      // not the other way around (which caused double-doubling on sync throws).
+      const delay = backoffRef.current;
+      backoffRef.current = Math.min(delay * 2, MAX_BACKOFF_MS);
+      console.log(`FedMed dashboard: reconnecting in ${delay}ms…`);
       reconnectTimerRef.current = setTimeout(() => {
-        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
         connectRef.current();
-      }, backoffRef.current);
+      }, delay);
     };
 
     let socket;

@@ -14,6 +14,14 @@ from server.dashboard.events import DashboardEvent, EventType
 DEFAULT_EVENT_HISTORY_LIMIT = 100
 
 
+def _coalesce(payload: dict, key: str, current):
+    """BUG-06 fix: return the payload value only when the key is present AND the
+    value is not None -- `dict.get(key, current)` would overwrite a previously
+    stored non-None value whenever the payload carries the key with value None."""
+    val = payload.get(key)
+    return current if val is None else val
+
+
 @dataclass
 class HospitalStatus:
     hospital_id: str
@@ -98,22 +106,22 @@ class DashboardState:
             hospital.connection_status = "Error"
             hospital.last_update = event.timestamp
         elif event.event_type == EventType.METRICS_UPDATED:
-            self.global_loss = payload.get("global_loss", self.global_loss)
-            self.global_dice = payload.get("global_dice", self.global_dice)
-            self.global_iou = payload.get("global_iou", self.global_iou)
+            self.global_loss = _coalesce(payload, "global_loss", self.global_loss)
+            self.global_dice = _coalesce(payload, "global_dice", self.global_dice)
+            self.global_iou = _coalesce(payload, "global_iou", self.global_iou)
         elif event.event_type == EventType.PRIVACY_UPDATED:
-            self.dp_enabled = payload.get("dp_enabled", self.dp_enabled)
-            self.privacy_unit = payload.get("privacy_unit", self.privacy_unit)
-            self.epsilon = payload.get("epsilon", self.epsilon)
-            self.delta = payload.get("delta", self.delta)
-            self.clip_norm = payload.get("clip_norm", self.clip_norm)
-            self.noise_multiplier = payload.get("noise_multiplier", self.noise_multiplier)
-            self.cumulative_epsilon = payload.get("cumulative_epsilon", self.cumulative_epsilon)
-            self.budget_status = payload.get("budget_status", self.budget_status)
+            self.dp_enabled = _coalesce(payload, "dp_enabled", self.dp_enabled)
+            self.privacy_unit = _coalesce(payload, "privacy_unit", self.privacy_unit)
+            self.epsilon = _coalesce(payload, "epsilon", self.epsilon)
+            self.delta = _coalesce(payload, "delta", self.delta)
+            self.clip_norm = _coalesce(payload, "clip_norm", self.clip_norm)
+            self.noise_multiplier = _coalesce(payload, "noise_multiplier", self.noise_multiplier)
+            self.cumulative_epsilon = _coalesce(payload, "cumulative_epsilon", self.cumulative_epsilon)
+            self.budget_status = _coalesce(payload, "budget_status", self.budget_status)
         elif event.event_type == EventType.ENCRYPTION_UPDATED:
-            self.ckks_enabled = payload.get("ckks_enabled", self.ckks_enabled)
-            self.encryption_status = payload.get("encryption_status", self.encryption_status)
-            self.tls_status = payload.get("tls_status", self.tls_status)
+            self.ckks_enabled = _coalesce(payload, "ckks_enabled", self.ckks_enabled)
+            self.encryption_status = _coalesce(payload, "encryption_status", self.encryption_status)
+            self.tls_status = _coalesce(payload, "tls_status", self.tls_status)
 
         self.recent_events.append(asdict(event))
 
